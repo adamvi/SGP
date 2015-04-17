@@ -171,13 +171,13 @@ simex.sgp <- function(
 				
 				if (length(available.matrices) > B) sim.iters <- sample(1:length(available.matrices), B) # Stays as 1:B when length(available.matrices) == B
 				if (length(available.matrices) < B) sim.iters <- sample(1:length(available.matrices), B, replace=TRUE)
-			}
+			} else environment(rq.mtx) <- environment() # set envir for rq.mtx function so that it finds all needed objects
 			
 			if (is.null(parallel.config)) { # Sequential
 				if (is.null(simex.use.my.coefficient.matrices)) {
 					for (z in seq_along(sim.iters)) {
 						simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]] <-
-							rq.mtx(tmp.gp.iter[1:k], my.path.knots.boundaries, lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size)
+							rq.mtx(tmp.gp.iter[1:k], lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size)
 					}
 				} else simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <- available.matrices[sim.iters]
 				
@@ -203,16 +203,16 @@ simex.sgp <- function(
 								foreach(z=iter(sim.iters), .packages=c("quantreg", "data.table"), 
 										.export=c("Knots_Boundaries", "rq.method", "taus", "content_area.progression", "tmp.slot.gp", "year.progression", "year_lags.progression"),
 										.options.mpi=par.start$foreach.options, .options.multicore=par.start$foreach.options, .options.snow=par.start$foreach.options) %dopar% {
-											rq.mtx(tmp.gp.iter[1:k], my.path.knots.boundaries, lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size)
+											rq.mtx(tmp.gp.iter[1:k], lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size)
 								}
 					} else {
 						if (par.start$par.type == 'MULTICORE') {
 							simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <- 
-								mclapply(sim.iters, function(z) rq.mtx(tmp.gp.iter[1:k], my.path.knots.boundaries, lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size), mc.cores=par.start$workers)
+								mclapply(sim.iters, function(z) rq.mtx(tmp.gp.iter[1:k], lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size), mc.cores=par.start$workers)
 						}
 						if (par.start$par.type == 'SNOW') {
 							simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <-
-								parLapply(par.start$internal.cl, sim.iters, function(z) rq.mtx(tmp.gp.iter[1:k], my.path.knots.boundaries, lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size))
+								parLapply(par.start$internal.cl, sim.iters, function(z) rq.mtx(tmp.gp.iter[1:k], lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size))
 						}
 					}
 				} else {
@@ -305,7 +305,7 @@ simex.sgp <- function(
 } ### END .simex.sgp function
 
 
-rq.mtx <- function(gp.iter, my.path.knots.boundaries, lam, b, simex.sample.size, N) {
+rq.mtx <- function(gp.iter, lam, b, simex.sample.size, N) {
 	mod <- character()
 	s4Ks <- "Knots=list("
 	s4Bs <- "Boundaries=list("
