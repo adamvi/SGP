@@ -2,7 +2,7 @@ simex.sgp <- function(
 	state, variable=NULL, csem.data.vnames=NULL, csem.loss.hoss=NULL, 
 	lambda, B, simex.sample.size, extrapolation, save.matrices, simex.use.my.coefficient.matrices=NULL, calculate.simex.sgps, verbose=FALSE) {
 
-	if(verbose) message("\n\tBegining SIMEX SGP calculation ", rev(content_area.progression)[1], rev(tmp.gp)[1], " ", date(), "\n")
+	if(verbose) message("\n\tBegining SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date(), "\n")
 	
 	GRADE <- CONTENT_AREA <- YEAR <- V1 <- Lambda <- tau <- b <- .SD <- TEMP <- NULL ## To avoid R CMD check warnings
 	my.path.knots.boundaries <- get.my.knots.boundaries.path(sgp.labels$my.subject, as.character(sgp.labels$my.year))
@@ -95,7 +95,7 @@ simex.sgp <- function(
 		}
 		
 		## 
-		if(verbose) message("\n\t", rev(content_area.progression)[1], rev(tmp.gp)[1], "Order", k, " Beginning simulation process ", date(), "\n")
+		if(verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Beginning simulation process ", date(), "\n")
 
 		if (!is.null(csem.data.vnames)) {
 			tmp.data <- merge(tmp.data, csem.int, by="ID")
@@ -171,13 +171,13 @@ simex.sgp <- function(
 				
 				if (length(available.matrices) > B) sim.iters <- sample(1:length(available.matrices), B) # Stays as 1:B when length(available.matrices) == B
 				if (length(available.matrices) < B) sim.iters <- sample(1:length(available.matrices), B, replace=TRUE)
-			} else environment(rq.mtx) <- environment() # set envir for rq.mtx function so that it finds all needed objects
+			}# else environment(rq.mtx) <- environment() # set envir for rq.mtx function so that it finds all needed objects # NO - makes envir copy necessary (?)
 			
 			if (is.null(parallel.config)) { # Sequential
 				if (is.null(simex.use.my.coefficient.matrices)) {
 					for (z in seq_along(sim.iters)) {
 						simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]] <-
-							rq.mtx(tmp.gp.iter[1:k], lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size)
+							rq.mtx(tmp.gp.iter[1:k], my.path.knots.boundaries, lam=L, b=z, tmp.dbname, tmp.simex.sample.size, N=tmp.n.size)
 					}
 				} else simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <- available.matrices[sim.iters]
 				
@@ -203,16 +203,16 @@ simex.sgp <- function(
 								foreach(z=iter(sim.iters), .packages=c("quantreg", "data.table"), 
 										.export=c("Knots_Boundaries", "rq.method", "taus", "content_area.progression", "tmp.slot.gp", "year.progression", "year_lags.progression"),
 										.options.mpi=par.start$foreach.options, .options.multicore=par.start$foreach.options, .options.snow=par.start$foreach.options) %dopar% {
-											rq.mtx(tmp.gp.iter[1:k], lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size)
+											rq.mtx(tmp.gp.iter[1:k], my.path.knots.boundaries, lam=L, b=z, tmp.dbname, tmp.simex.sample.size, N=tmp.n.size)
 								}
 					} else {
 						if (par.start$par.type == 'MULTICORE') {
 							simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <- 
-								mclapply(sim.iters, function(z) rq.mtx(tmp.gp.iter[1:k], lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size), mc.cores=par.start$workers)
+								mclapply(sim.iters, function(z) rq.mtx(tmp.gp.iter[1:k], my.path.knots.boundaries, lam=L, b=z, tmp.dbname, tmp.simex.sample.size, N=tmp.n.size), mc.cores=par.start$workers)
 						}
 						if (par.start$par.type == 'SNOW') {
 							simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <-
-								parLapply(par.start$internal.cl, sim.iters, function(z) rq.mtx(tmp.gp.iter[1:k], lam=L, b=z, tmp.simex.sample.size, N=tmp.n.size))
+								parLapply(par.start$internal.cl, sim.iters, function(z) rq.mtx(tmp.gp.iter[1:k], my.path.knots.boundaries, lam=L, b=z, tmp.dbname, tmp.simex.sample.size, N=tmp.n.size))
 						}
 					}
 				} else {
@@ -266,7 +266,7 @@ simex.sgp <- function(
 			}
 		} ### END for (L in lambda[-1])
 		unlink(tmp.dbname)
-		if(verbose) message("\n\t", rev(content_area.progression)[1], rev(tmp.gp)[1], "Order", k, " Simulation process complete ", date(), "\n\nBeginning extrapolation/prediction\n")
+		if(verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Simulation process complete ", date(), "\nBeginning extrapolation/prediction\n")
 
 		if (calculate.simex.sgps) {
 			switch(extrapolation,
@@ -278,7 +278,7 @@ simex.sgp <- function(
 		}
 	} ### END for (k in simex.matrix.priors)
 	
-	if(verbose) message("\n\t", rev(content_area.progression)[1], rev(tmp.gp)[1], ": Beginning SIMEX SGP calculation ", date(), "\n")
+	if(verbose) message("\t\t", rev(content_area.progression)[1], " ", rev(tmp.gp)[1], ": Beginning SIMEX SGP calculation ", date(), "\n")
 
 	if (is.null(save.matrices)) simex.coef.matrices <- NULL
 	if (calculate.simex.sgps) {
@@ -301,11 +301,11 @@ simex.sgp <- function(
 				MATRICES = simex.coef.matrices))
 		}
 	}
-	if(verbose) message("\n\tFinished SIMEX SGP calculation ", rev(content_area.progression)[1], rev(tmp.gp)[1], " ", date(), "\n")
+	if(verbose) message("\tFinished SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date(), "\n")
 } ### END .simex.sgp function
 
 
-rq.mtx <- function(gp.iter, lam, b, simex.sample.size, N) {
+rq.mtx <- function(gp.iter, knots.boundaries.path, lam, b, dbname, simex.sample.size, N) {
 	mod <- character()
 	s4Ks <- "Knots=list("
 	s4Bs <- "Boundaries=list("
