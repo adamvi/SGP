@@ -38,7 +38,7 @@ simex.sgp <- function(
 	for (k in simex.matrix.priors) {
 		tmp.data <- .get.panel.data(ss.data, k, by.grade)
 		tmp.n.size <- dim(tmp.data)[1]
-		tmp.simex.sample.size <- ifelse(tmp.n.size<= simex.sample.size, simex.sample.size, NULL)
+		if(tmp.n.size > simex.sample.size) tmp.simex.sample.size <- simex.sample.size else tmp.simex.sample.size <- NULL
 		tmp.num.variables <- dim(tmp.data)[2]
 		tmp.gp.iter <- rev(tmp.gp)[2:(k+1)]
 		tmp.ca.iter <- rev(content_area.progression)[2:(k+1)]
