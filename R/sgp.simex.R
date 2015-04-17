@@ -35,8 +35,6 @@ simex.sgp <- function(
 		}
 	} else simex.matrix.priors <- coefficient.matrix.priors
 	
-	if (!is.null(parallel.config)) par.start <- startParallel(parallel.config, 'SIMEX')
-	
 	for (k in simex.matrix.priors) {
 		tmp.data <- .get.panel.data(ss.data, k, by.grade)
 		tmp.n.size <- dim(tmp.data)[1]
@@ -198,6 +196,7 @@ simex.sgp <- function(
 				
 				## Calculate coefficient matricies (if needed/requested)
 				if (is.null(simex.use.my.coefficient.matrices)) {
+					par.start <- startParallel(parallel.config, 'SIMEX')
 					if (toupper(parallel.config[["BACKEND"]]) == "FOREACH") {
 							simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <-
 								foreach(z=iter(sim.iters), .packages=c("quantreg", "splines", "data.table", "RSQLite"),
@@ -215,12 +214,14 @@ simex.sgp <- function(
 								parLapply(par.start$internal.cl, sim.iters, function(z) rq.mtx(tmp.gp.iter[1:k], Knots_Boundaries, my.path.knots.boundaries, L, z, tmp.dbname, tmp.simex.sample.size, tmp.n.size, rq.method, taus, content_area.progression, tmp.slot.gp, year.progression, year_lags.progression, k))
 						}
 					}
+					stopParallel(parallel.config, par.start)
 				} else {
 					simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <- available.matrices[sim.iters]
 				}
 				
 				## get percentile predictions from coefficient matricies
 				if (calculate.simex.sgps) {
+					par.start <- startParallel(parallel.config, 'SIMEX')
 					if (toupper(parallel.config[["BACKEND"]]) == "FOREACH") {
 						mtx.subset <- simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] # Save on memory copying to R SNOW workers
 						fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- 
@@ -263,6 +264,7 @@ simex.sgp <- function(
 							}
 						}
 					}
+					stopParallel(parallel.config, par.start)
 				}
 			}
 		} ### END for (L in lambda[-1])
@@ -278,7 +280,6 @@ simex.sgp <- function(
 																						 SGP_SIMEX=.get.quantiles(extrap[[paste("order_", k, sep="")]], tmp.data[[tmp.num.variables]]))
 		}
 	} ### END for (k in simex.matrix.priors)
-	if (!is.null(parallel.config)) stopParallel(parallel.config, par.start)
 
 	if(verbose) message("\t\t", rev(content_area.progression)[1], " ", rev(tmp.gp)[1], ": Beginning SIMEX SGP calculation ", date())
 
