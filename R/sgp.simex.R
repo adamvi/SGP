@@ -224,14 +224,14 @@ simex.sgp <- function(
 					if (toupper(parallel.config[["BACKEND"]]) == "FOREACH") {
 						mtx.subset <- simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] # Save on memory copying to R SNOW workers
 						fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- 
-							foreach(z=iter(sim.iters), .combine="+", .export=c('.get.percentile.predictions', 'tmp.gp'), 
+							foreach(z=iter(sim.iters), .combine="+", .export=c('.get.percentile.predictions', '.smooth.isotonize.row', 'tmp.gp', 'k', 'taus'), 
 											.options.multicore=par.start$foreach.options) %dopar% { # .options.snow=par.start$foreach.options
 												as.vector(
-													.get.percentile.predictions(
-														dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
-																paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")),
-														mtx.subset[[z]])/B)
-											}
+													.get.percentile.predictions(my.data=list(sqlite.db=tmp.dbname, b=z),
+# 														dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
+# 																paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")),
+															my.matrix = mtx.subset[[z]])/B)
+							}
 					} else {
 						if (par.start$par.type == 'MULTICORE') {
 							tmp.fitted <- mclapply(seq_along(sim.iters), function(z) {
