@@ -227,7 +227,7 @@ simex.sgp <- function(
 							foreach(z=iter(sim.iters), .combine="+", .export=c('.get.percentile.predictions', '.smooth.isotonize.row', 'tmp.gp', 'k', 'taus'), 
 											.options.multicore=par.start$foreach.options) %dopar% { # .options.snow=par.start$foreach.options
 												as.vector(
-													.get.percentile.predictions(my.data=list(sqlite.db=tmp.dbname, b=z),
+													.get.percentile.predictions(my.data=list(sqlite.db=tmp.dbname, b=z, k=k, taus=taus),
 # 														dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
 # 																paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")),
 															my.matrix = mtx.subset[[z]])/B)

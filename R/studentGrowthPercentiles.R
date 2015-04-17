@@ -228,6 +228,8 @@ function(panel.data,         ## REQUIRED
 	.get.percentile.predictions <- function(my.data, my.matrix) {
 		SCORE <- NULL
 		if (is.list(my.data)) {
+			k <- my.data$k
+			taus <- my.data$taus
 			my.data <- eval(parse(text=paste("dbGetQuery(dbConnect(SQLite(), dbname = '", my.data$sqlite.db, "'), '",
 											paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in (", my.data$b,")')", sep=""), sep="")))
 		}
