@@ -2,7 +2,7 @@ simex.sgp <- function(
 	state, variable=NULL, csem.data.vnames=NULL, csem.loss.hoss=NULL, 
 	lambda, B, simex.sample.size, extrapolation, save.matrices, simex.use.my.coefficient.matrices=NULL, calculate.simex.sgps, verbose=FALSE) {
 
-	if(verbose) message("\n\tBegining SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date(), "\n")
+	if(verbose) message("\n\tBegining SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date())
 	
 	GRADE <- CONTENT_AREA <- YEAR <- V1 <- Lambda <- tau <- b <- .SD <- TEMP <- NULL ## To avoid R CMD check warnings
 	my.path.knots.boundaries <- get.my.knots.boundaries.path(sgp.labels$my.subject, as.character(sgp.labels$my.year))
@@ -34,6 +34,8 @@ simex.sgp <- function(
 			simex.matrix.priors <- seq(num.prior)
 		}
 	} else simex.matrix.priors <- coefficient.matrix.priors
+	
+	if (!is.null(parallel.config)) par.start <- startParallel(parallel.config, 'SIMEX')
 	
 	for (k in simex.matrix.priors) {
 		tmp.data <- .get.panel.data(ss.data, k, by.grade)
@@ -95,7 +97,7 @@ simex.sgp <- function(
 		}
 		
 		## 
-		if(verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Beginning simulation process ", date(), "\n")
+		if(verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Beginning simulation process ", date())
 
 		if (!is.null(csem.data.vnames)) {
 			tmp.data <- merge(tmp.data, csem.int, by="ID")
@@ -191,8 +193,6 @@ simex.sgp <- function(
 				}
 			} else {	# Parallel over sim.iters
 				
-				par.start <- startParallel(parallel.config, 'SIMEX')
-				
 				## Note, that if you use the parallel.config for SIMEX here, you can also use it for TAUS in the naive analysis
 				## Example parallel.config argument: '... parallel.config=list(BACKEND="PARALLEL", TYPE="PSOCK", WORKERS=list(SIMEX = 4, TAUS = 4))'
 				
@@ -222,14 +222,15 @@ simex.sgp <- function(
 				## get percentile predictions from coefficient matricies
 				if (calculate.simex.sgps) {
 					if (toupper(parallel.config[["BACKEND"]]) == "FOREACH") {
+						mtx.subset <- simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] # Save on memory copying to R SNOW workers
 						fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- 
 							foreach(z=iter(sim.iters), .combine="+", .export=c('.get.percentile.predictions', 'tmp.gp'), 
 											.options.multicore=par.start$foreach.options) %dopar% { # .options.snow=par.start$foreach.options
 												as.vector(
 													.get.percentile.predictions(
 														dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
-																			 paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")),
-														simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]])/B)
+																paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")),
+														mtx.subset[[z]])/B)
 											}
 					} else {
 						if (par.start$par.type == 'MULTICORE') {
@@ -247,12 +248,13 @@ simex.sgp <- function(
 							}
 						}
 						if (par.start$par.type == 'SNOW') {
+							mtx.subset <- simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] # Save on memory copying to R SNOW workers
 							tmp.fitted <- parLapply(par.start$internal.cl, seq_along(sim.iters), function(z) { 
 								as.vector(
 									.get.percentile.predictions(
 										dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
 															 paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")), 
-										simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]])/B)
+										mtx.subset[[z]])/B)
 							})
 							
 							fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- tmp.fitted[[1]]
@@ -262,11 +264,10 @@ simex.sgp <- function(
 						}
 					}
 				}
-				stopParallel(parallel.config, par.start)
 			}
 		} ### END for (L in lambda[-1])
 		unlink(tmp.dbname)
-		if(verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Simulation process complete ", date(), "\nBeginning extrapolation/prediction\n")
+		if(verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Simulation process complete ", date())
 
 		if (calculate.simex.sgps) {
 			switch(extrapolation,
@@ -277,8 +278,9 @@ simex.sgp <- function(
 																						 SGP_SIMEX=.get.quantiles(extrap[[paste("order_", k, sep="")]], tmp.data[[tmp.num.variables]]))
 		}
 	} ### END for (k in simex.matrix.priors)
-	
-	if(verbose) message("\t\t", rev(content_area.progression)[1], " ", rev(tmp.gp)[1], ": Beginning SIMEX SGP calculation ", date(), "\n")
+	if (!is.null(parallel.config)) stopParallel(parallel.config, par.start)
+
+	if(verbose) message("\t\t", rev(content_area.progression)[1], " ", rev(tmp.gp)[1], ": Beginning SIMEX SGP calculation ", date())
 
 	if (is.null(save.matrices)) simex.coef.matrices <- NULL
 	if (calculate.simex.sgps) {
