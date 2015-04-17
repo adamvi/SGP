@@ -227,7 +227,7 @@ function(panel.data,         ## REQUIRED
 
 	.get.percentile.predictions <- function(my.data, my.matrix) {
 		SCORE <- NULL
-		if (is.list(my.data)) {
+		if (!is.data.frame(my.data)) {
 			k <- my.data$k
 			taus <- my.data$taus
 			my.data <- eval(parse(text=paste("dbGetQuery(dbConnect(SQLite(), dbname = '", my.data$sqlite.db, "'), '",
