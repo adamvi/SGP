@@ -305,7 +305,7 @@ simex.sgp <- function(
 } ### END .simex.sgp function
 
 
-rq.mtx <- function(gp.iter, knots.boundaries.path, lam, b, dbname, simex.sample.size, N) {
+rq.mtx <- function(gp.iter, my.path.knots.boundaries, lam, b, tmp.dbname, simex.sample.size, N) {
 	mod <- character()
 	s4Ks <- "Knots=list("
 	s4Bs <- "Boundaries=list("
