@@ -266,7 +266,7 @@ simex.sgp <- function(
 			}
 		} ### END for (L in lambda[-1])
 		unlink(tmp.dbname)
-		if(verbose) message("\n\t", rev(content_area.progression)[1], rev(tmp.gp)[1], "Order", k, " Simulation process complete ", date(), "\n\n\Beginning extrapolation/prediction\n")
+		if(verbose) message("\n\t", rev(content_area.progression)[1], rev(tmp.gp)[1], "Order", k, " Simulation process complete ", date(), "\n\nBeginning extrapolation/prediction\n")
 
 		if (calculate.simex.sgps) {
 			switch(extrapolation,
