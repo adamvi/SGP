@@ -327,6 +327,7 @@ rq.mtx <- function(gp.iter, Knots_Boundaries, my.path.knots.boundaries, lam, b, 
 				paste("select * from simex_data where b in ('", b, "')", sep="")))[sample(1:N, simex.sample.size)]
 	}
 	
+	stop("@$$")
 	tmp.mtx <-eval(parse(text=paste("rq(final_yr ~", substring(mod,4), ", tau=taus, data = rqdata, method=rq.method)[['coefficients']]", sep="")))
 	
 	tmp.version <- list(SGP_Package_Version=as.character(packageVersion("SGP")), Date_Prepared=date(), Matrix_Information=list(N=dim(rqdata)[1]))
