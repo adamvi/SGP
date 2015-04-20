@@ -2,7 +2,7 @@ simex.sgp <- function(
 	state, variable=NULL, csem.data.vnames=NULL, csem.loss.hoss=NULL, 
 	lambda, B, simex.sample.size, extrapolation, save.matrices, simex.use.my.coefficient.matrices=NULL, calculate.simex.sgps, verbose=FALSE) {
 
-	if(verbose) message("\n\tBegining SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date())
+	if(verbose) message("\n\tStarted SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date())
 	
 	GRADE <- CONTENT_AREA <- YEAR <- V1 <- Lambda <- tau <- b <- .SD <- TEMP <- NULL ## To avoid R CMD check warnings
 	my.path.knots.boundaries <- get.my.knots.boundaries.path(sgp.labels$my.subject, as.character(sgp.labels$my.year))
@@ -95,7 +95,7 @@ simex.sgp <- function(
 		}
 		
 		## 
-		if(verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Beginning simulation process ", date())
+		if(verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Started simulation process ", date())
 
 		if (!is.null(csem.data.vnames)) {
 			tmp.data <- merge(tmp.data, csem.int, by="ID")
@@ -281,7 +281,7 @@ simex.sgp <- function(
 		}
 	} ### END for (k in simex.matrix.priors)
 
-	if(verbose) message("\t\t", rev(content_area.progression)[1], " ", rev(tmp.gp)[1], ": Beginning SIMEX SGP calculation ", date())
+	if(verbose) message("\tFinished SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date())
 
 	if (is.null(save.matrices)) simex.coef.matrices <- NULL
 	if (calculate.simex.sgps) {
@@ -326,12 +326,8 @@ rq.mtx <- function(gp.iter, Knots_Boundaries, my.path.knots.boundaries, lam, b, 
 		rqdata <- data.table(dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname), 
 				paste("select * from simex_data where b in ('", b, "')", sep="")))[sample(1:N, simex.sample.size)]
 	}
-	
-	stop("@$$")
 	tmp.mtx <-eval(parse(text=paste("rq(final_yr ~", substring(mod,4), ", tau=taus, data = rqdata, method=rq.method)[['coefficients']]", sep="")))
-	
 	tmp.version <- list(SGP_Package_Version=as.character(packageVersion("SGP")), Date_Prepared=date(), Matrix_Information=list(N=dim(rqdata)[1]))
-	
 	eval(parse(text=paste("new('splineMatrix', tmp.mtx, ", substring(s4Ks, 1, nchar(s4Ks)-1), "), ", substring(s4Bs, 1, nchar(s4Bs)-1), "), ",
 												"Content_Areas=list(as.character(tail(content_area.progression, k+1))), ",
 												"Grade_Progression=list(as.character(tail(tmp.slot.gp, k+1))), ",
