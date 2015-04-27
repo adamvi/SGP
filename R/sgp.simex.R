@@ -240,10 +240,12 @@ simex.sgp <- function(
 						if (par.start$par.type == 'MULTICORE') {
 							tmp.fitted <- mclapply(seq_along(sim.iters), function(z) {
 								as.vector(
-									get.percentile.preds(
-										dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
-															 paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")), 
-										simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]])/B)
+									get.percentile.preds(my.data=list(sqlite.db=tmp.dbname, b=z, k=k, taus=taus), isotonize=isotonize,
+										my.matrix = simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]])/B)
+# 									get.percentile.preds(
+# 										dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
+# 															 paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")), 
+# 										simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]])/B)
 							}, mc.cores=par.start$workers)
 							
 							fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- tmp.fitted[[1]]
