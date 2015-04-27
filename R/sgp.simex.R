@@ -92,7 +92,7 @@ simex.sgp <- function(
 				tail(year_lags.progression, k),
 				my.matrix.order=k)[[1]]
 			
-			fitted[[paste("order_", k, sep="")]][1,] <- as.vector(get.percentile.preds(tmp.data, tmp.matrix, k, taus))
+			fitted[[paste("order_", k, sep="")]][1,] <- as.vector(get.percentile.preds(tmp.data, tmp.matrix, k, taus, isotonize))
 		}
 		
 		## 
@@ -229,7 +229,7 @@ simex.sgp <- function(
 							foreach(z=iter(sim.iters), .combine="+", .export=c('get.percentile.preds', '.smooth.isotonize.row', 'tmp.gp', 'k', 'taus'), 
 											.options.multicore=par.start$foreach.options) %dopar% { # .options.snow=par.start$foreach.options
 												as.vector(
-													get.percentile.preds(my.data=list(sqlite.db=tmp.dbname, b=z, k=k, taus=taus),
+													get.percentile.preds(my.data=list(sqlite.db=tmp.dbname, b=z, k=k, taus=taus, isotonize=isotonize),
 # 														dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
 # 																paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")),
 															my.matrix = mtx.subset[[z]])/B)
@@ -337,7 +337,7 @@ rq.mtx <- function(gp.iter, Knots_Boundaries, my.path.knots.boundaries, lam, b, 
 												"Version=tmp.version)", sep="")))
 }
 
-get.percentile.preds <- function(my.data, my.matrix, k=NULL, taus=NULL) {
+get.percentile.preds <- function(my.data, my.matrix, k=NULL, taus=NULL, isotonize=isotonize) {
 	SCORE <- NULL
 	if (!is.data.frame(my.data)) {
 		k <- my.data$k
