@@ -91,7 +91,7 @@ simex.sgp <- function(
 				tail(year_lags.progression, k),
 				my.matrix.order=k)[[1]]
 			
-			fitted[[paste("order_", k, sep="")]][1,] <- as.vector(.get.percentile.predictions(tmp.data, tmp.matrix))
+			fitted[[paste("order_", k, sep="")]][1,] <- as.vector(get.percentile.preds(tmp.data, tmp.matrix))
 		}
 		
 		## 
@@ -184,7 +184,7 @@ simex.sgp <- function(
 				if (calculate.simex.sgps) {
 					for (z in seq_along(sim.iters)) {
 						fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- fitted[[paste("order_", k, sep="")]][which(lambda==L),] + 
-							as.vector(.get.percentile.predictions(dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname), 
+							as.vector(get.percentile.preds(dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname), 
 																															 paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", "), " from simex_data where b in ('", z, "')", sep="")), 
 																										simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]])/B)
 					}
@@ -225,10 +225,10 @@ simex.sgp <- function(
 					if (toupper(parallel.config[["BACKEND"]]) == "FOREACH") {
 						mtx.subset <- simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] # Save on memory copying to R SNOW workers
 						fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- 
-							foreach(z=iter(sim.iters), .combine="+", .export=c('.get.percentile.predictions', '.smooth.isotonize.row', 'tmp.gp', 'k', 'taus'), 
+							foreach(z=iter(sim.iters), .combine="+", .export=c('get.percentile.preds', '.smooth.isotonize.row', 'tmp.gp', 'k', 'taus'), 
 											.options.multicore=par.start$foreach.options) %dopar% { # .options.snow=par.start$foreach.options
 												as.vector(
-													.get.percentile.predictions(my.data=list(sqlite.db=tmp.dbname, b=z, k=k, taus=taus),
+													get.percentile.preds(my.data=list(sqlite.db=tmp.dbname, b=z, k=k, taus=taus),
 # 														dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
 # 																paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")),
 															my.matrix = mtx.subset[[z]])/B)
@@ -237,7 +237,7 @@ simex.sgp <- function(
 						if (par.start$par.type == 'MULTICORE') {
 							tmp.fitted <- mclapply(seq_along(sim.iters), function(z) {
 								as.vector(
-									.get.percentile.predictions(
+									get.percentile.preds(
 										dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
 															 paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")), 
 										simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]])/B)
@@ -252,7 +252,7 @@ simex.sgp <- function(
 							mtx.subset <- simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] # Save on memory copying to R SNOW workers
 							tmp.fitted <- parLapply(par.start$internal.cl, seq_along(sim.iters), function(z) { 
 								as.vector(
-									.get.percentile.predictions(
+									get.percentile.preds(
 										dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
 															 paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")), 
 										mtx.subset[[z]])/B)
@@ -334,4 +334,24 @@ rq.mtx <- function(gp.iter, Knots_Boundaries, my.path.knots.boundaries, lam, b, 
 												"Time=list(as.character(tail(year.progression, k+1))), ",
 												"Time_Lags=list(as.numeric(tail(year_lags.progression, k))), ",
 												"Version=tmp.version)", sep="")))
+}
+
+get.percentile.preds <- function(my.data, my.matrix) {
+	SCORE <- NULL
+	if (!is.data.frame(my.data)) {
+		k <- my.data$k
+		taus <- my.data$taus
+		my.data <- eval(parse(text=paste("dbGetQuery(dbConnect(SQLite(), dbname = '", my.data$sqlite.db, "'), '",
+																		 paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in (", my.data$b,")')", sep=""), sep="")))
+	}
+	mod <- character()
+	int <- "cbind(rep(1, dim(my.data)[1]),"
+	for (k in seq_along(my.matrix@Time_Lags[[1]])) {
+		knt <- paste("my.matrix@Knots[[", k, "]]", sep="")
+		bnd <- paste("my.matrix@Boundaries[[", k, "]]", sep="")
+		mod <- paste(mod, ", bs(my.data[[", dim(my.data)[2]-k, "]], knots=", knt, ", Boundary.knots=", bnd, ")", sep="")
+	}	
+	tmp <- eval(parse(text=paste(int, substring(mod, 2), ") %*% my.matrix", sep="")))
+	return(round(matrix(data.table(ID=rep(seq(dim(tmp)[1]), each=length(taus)), SCORE=as.vector(t(tmp)))[,.smooth.isotonize.row(SCORE), by=ID][['V1']], 
+											ncol=length(taus), byrow=TRUE), digits=5))
 }
