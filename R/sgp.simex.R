@@ -186,7 +186,7 @@ simex.sgp <- function(
 					for (z in seq_along(sim.iters)) {
 						fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- fitted[[paste("order_", k, sep="")]][which(lambda==L),] + 
 							as.vector(get.percentile.preds(dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname), 
-																															 paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", "), " from simex_data where b in ('", z, "')", sep="")), 
+												paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", "), " from simex_data where b in ('", z, "')", sep="")), 
 																										simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]])/B)
 					}
 				}
@@ -225,11 +225,12 @@ simex.sgp <- function(
 					par.start <- startParallel(parallel.config, 'SIMEX')
 					if (toupper(parallel.config[["BACKEND"]]) == "FOREACH") {
 						mtx.subset <- simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] # Save on memory copying to R SNOW workers
+						environment(get.percentile.preds) <- emptyenv()
 						fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- 
-							foreach(z=iter(sim.iters), .combine="+", .export=c('get.percentile.preds', '.smooth.isotonize.row', 'tmp.gp', 'k', 'taus'), 
+							foreach(z=iter(sim.iters), .combine="+", .export=c('tmp.gp', 'k', 'taus'), 
 											.options.multicore=par.start$foreach.options) %dopar% { # .options.snow=par.start$foreach.options
 												as.vector(
-													get.percentile.preds(my.data=list(sqlite.db=tmp.dbname, b=z, k=k, taus=taus, isotonize=isotonize),
+													get.percentile.preds(my.data=list(sqlite.db=tmp.dbname, b=z, k=k, taus=taus), isotonize=isotonize,
 # 														dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
 # 																paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", ")," from simex_data where b in ('",z,"')", sep="")),
 															my.matrix = mtx.subset[[z]])/B)
