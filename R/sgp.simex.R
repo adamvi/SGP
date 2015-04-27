@@ -10,7 +10,8 @@ simex.sgp <- function(
 	if (!is.null(state) & !is.null(variable)) stop("SIMEX config can not use both 'state' and 'variable' elements.")
 	if (!is.null(state) & !is.null(csem.data.vnames)) stop("SIMEX config can not use both 'state' and 'csem.data.vnames' elements.")
 	if (!is.null(csem.data.vnames) & !is.null(variable)) stop("SIMEX config can not use both 'csem.data.vnames' and 'variable' elements.")
-	
+	if (!is.null(sgp.loss.hoss.adjustment)) stop("SIMEX not set up to deal with 'sgp.loss.hoss.adjustment'.")
+
 	fitted <- extrap <- tmp.quantiles.simex <- simex.coef.matrices <- list()
 	loss.hoss <- matrix(nrow=2,ncol=length(tmp.gp)-1)
 	if (!is.null(csem.loss.hoss)) {
@@ -357,11 +358,12 @@ get.percentile.preds <- function(my.data, my.matrix, k=NULL, taus=NULL) {
 }
 
 smooth.isotonize.row <- function(x, iso=isotonize) {
-	if (!is.null(sgp.loss.hoss.adjustment)) {
-		my.path.knots.boundaries <- get.my.knots.boundaries.path(sgp.labels$my.subject, as.character(sgp.labels$my.year))
-		bnd <- eval(parse(text=paste("Knots_Boundaries", my.path.knots.boundaries, "[['loss.hoss_", tmp.last, "']]", sep="")))
-		x[x > bnd[2]] <- bnd[2]
-	}
+# 	sgp.loss.hoss.adjustment not implemented in SIMEX yet.  Need to think about how to do this with simulated data
+# 	if (!is.null(sgp.loss.hoss.adjustment)) {
+# 		my.path.knots.boundaries <- get.my.knots.boundaries.path(sgp.labels$my.subject, as.character(sgp.labels$my.year))
+# 		bnd <- eval(parse(text=paste("Knots_Boundaries", my.path.knots.boundaries, "[['loss.hoss_", tmp.last, "']]", sep="")))
+# 		x[x > bnd[2]] <- bnd[2]
+# 	}
 	x[which(is.na(x))] <- approx(x, xout=which(is.na(x)))$y
 	if (iso) return(sort(x))
 	else return(x)
