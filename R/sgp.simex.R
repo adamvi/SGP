@@ -176,6 +176,7 @@ simex.sgp <- function(
 			
 			if (is.null(parallel.config)) { # Sequential
 				if (is.null(simex.use.my.coefficient.matrices)) {
+					if(verbose) message("\t\t\tStarted coefficient matrix calculation, Lambda ", L, ": ", date())
 					for (z in seq_along(sim.iters)) {
 						simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]] <-
 							rq.mtx(tmp.gp.iter[1:k], Knots_Boundaries, my.path.knots.boundaries, L, z, tmp.dbname, tmp.simex.sample.size, tmp.n.size, rq.method, taus, content_area.progression, tmp.slot.gp, year.progression, year_lags.progression, k)
@@ -183,6 +184,7 @@ simex.sgp <- function(
 				} else simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <- available.matrices[sim.iters]
 				
 				if (calculate.simex.sgps) {
+					if(verbose) message("\t\t\tStarted percentile prediction calculation, Lambda ", L, ": ", date())
 					for (z in seq_along(sim.iters)) {
 						fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- fitted[[paste("order_", k, sep="")]][which(lambda==L),] + 
 							as.vector(get.percentile.preds(dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname), 
@@ -197,6 +199,7 @@ simex.sgp <- function(
 				
 				## Calculate coefficient matricies (if needed/requested)
 				if (is.null(simex.use.my.coefficient.matrices)) {
+					if(verbose) message("\t\t\tStarted coefficient matrix calculation, Lambda ", L, ": ", date())
 					par.start <- startParallel(parallel.config, 'SIMEX')
 					if (toupper(parallel.config[["BACKEND"]]) == "FOREACH") {
 							simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <-
@@ -222,6 +225,7 @@ simex.sgp <- function(
 				
 				## get percentile predictions from coefficient matricies
 				if (calculate.simex.sgps) {
+					if(verbose) message("\t\t\tStarted percentile prediction calculation, Lambda ", L, ": ", date())
 					par.start <- startParallel(parallel.config, 'SIMEX')
 					if (toupper(parallel.config[["BACKEND"]]) == "FOREACH") {
 						mtx.subset <- simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] # Save on memory copying to R SNOW workers
