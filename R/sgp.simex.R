@@ -353,7 +353,7 @@ get.percentile.preds <- function(my.data, my.matrix, k=NULL, taus=NULL, isotoniz
 		mod <- paste(mod, ", bs(my.data[[", dim(my.data)[2]-k, "]], knots=", knt, ", Boundary.knots=", bnd, ")", sep="")
 	}	
 	tmp <- eval(parse(text=paste(int, substring(mod, 2), ") %*% my.matrix", sep="")))
-	return(round(matrix(data.table(ID=rep(seq(dim(tmp)[1]), each=length(taus)), SCORE=as.vector(t(tmp)))[,smooth.isotonize.row(SCORE), by=ID][['V1']], 
+	return(round(matrix(data.table(ID=rep(seq(dim(tmp)[1]), each=length(taus)), SCORE=as.vector(t(tmp)))[,smooth.isotonize.row(SCORE, isotonize), by=ID][['V1']], 
 											ncol=length(taus), byrow=TRUE), digits=5))
 }
 
