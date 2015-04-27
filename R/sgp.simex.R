@@ -91,7 +91,7 @@ simex.sgp <- function(
 				tail(year_lags.progression, k),
 				my.matrix.order=k)[[1]]
 			
-			fitted[[paste("order_", k, sep="")]][1,] <- as.vector(get.percentile.preds(tmp.data, tmp.matrix))
+			fitted[[paste("order_", k, sep="")]][1,] <- as.vector(get.percentile.preds(tmp.data, tmp.matrix, k, taus))
 		}
 		
 		## 
@@ -336,7 +336,7 @@ rq.mtx <- function(gp.iter, Knots_Boundaries, my.path.knots.boundaries, lam, b, 
 												"Version=tmp.version)", sep="")))
 }
 
-get.percentile.preds <- function(my.data, my.matrix) {
+get.percentile.preds <- function(my.data, my.matrix, k=NULL, taus=NULL) {
 	SCORE <- NULL
 	if (!is.data.frame(my.data)) {
 		k <- my.data$k
