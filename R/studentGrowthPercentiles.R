@@ -48,15 +48,13 @@ function(panel.data,         ## REQUIRED
 	started.at <- proc.time()
 	started.date <- date()
 
-	SGPstateData <- SGPstateData
-
 	##########################################################
 	###
 	### Internal utility functions
 	###
 	##########################################################
 
-	.smooth.isotonize.row <- function(x, iso=isotonize) {
+	.smooth.isotonize.row <- function(x, iso=isotonize, sgp.loss.hoss.adjustment) {
 		if (!is.null(sgp.loss.hoss.adjustment)) {
 			my.path.knots.boundaries <- get.my.knots.boundaries.path(sgp.labels$my.subject, as.character(sgp.labels$my.year))
 			bnd <- eval(parse(text=paste("Knots_Boundaries", my.path.knots.boundaries, "[['loss.hoss_", tmp.last, "']]", sep="")))
@@ -241,7 +239,7 @@ function(panel.data,         ## REQUIRED
 			mod <- paste(mod, ", bs(my.data[[", dim(my.data)[2]-k, "]], knots=", knt, ", Boundary.knots=", bnd, ")", sep="")
 		}	
 		tmp <- eval(parse(text=paste(int, substring(mod, 2), ") %*% my.matrix", sep="")))
-		return(round(matrix(data.table(ID=rep(seq(dim(tmp)[1]), each=length(taus)), SCORE=as.vector(t(tmp)))[,.smooth.isotonize.row(SCORE), by=ID][['V1']], 
+		return(round(matrix(data.table(ID=rep(seq(dim(tmp)[1]), each=length(taus)), SCORE=as.vector(t(tmp)))[,.smooth.isotonize.row(SCORE, isotonize, sgp.loss.hoss.adjustment), by=ID][['V1']], 
 				ncol=length(taus), byrow=TRUE), digits=5))
 	}
 
@@ -249,7 +247,8 @@ function(panel.data,         ## REQUIRED
 		TMP_TF <- SGP <- SGP_NEW <- .EACHI <- NULL
 		tmp <- data.table(ID=rep(seq(dim(data1)[1]), each=length(taus)+1), TMP_TF=as.vector(t(cbind(data1 < data2, FALSE))))[,which.min(TMP_TF)-1, by=ID][['V1']]
 		if (!is.null(sgp.quantiles.labels)) {
-			return(data.table(SGP=as.integer(tmp), key="SGP")[data.table(SGP=seq(0, length(sgp.quantiles)), SGP_NEW=sgp.quantiles.labels, key="SGP"), SGP:=SGP_NEW, by=.EACHI][['SGP']])
+			setattr(tmp <- as.factor(tmp), "levels", sgp.quantiles.labels)
+			return(as.integer(levels(tmp))[tmp])
 		} else {
 			if (!is.null(sgp.loss.hoss.adjustment)) {
 				my.path.knots.boundaries <- get.my.knots.boundaries.path(sgp.labels$my.subject, as.character(sgp.labels$my.year))
@@ -337,12 +336,12 @@ function(panel.data,         ## REQUIRED
 			} 
 		}
 		if (is.character(growth.levels)) {
-			if (is.null(SGPstateData[[growth.levels]][["Growth"]][["Levels"]])) {
+			if (is.null(SGP::SGPstateData[[growth.levels]][["Growth"]][["Levels"]])) {
 				tmp.messages <- c(tmp.messages, "\t\tNOTE: Growth Levels are currently not specified for the indicated state. \n\tPlease contact the SGP package administrator to have your state's data included in the package. Student growth percentiles will be calculated without augmented growth levels\n")
 				tf.growth.levels <- FALSE
 			} else {
-				tmp.growth.levels[["my.cuts"]] <- SGPstateData[[growth.levels]][["Growth"]][["Cutscores"]][["Cuts"]]
-				tmp.growth.levels[["my.levels"]] <- SGPstateData[[growth.levels]][["Growth"]][["Levels"]]
+				tmp.growth.levels[["my.cuts"]] <- SGP::SGPstateData[[growth.levels]][["Growth"]][["Cutscores"]][["Cuts"]]
+				tmp.growth.levels[["my.levels"]] <- SGP::SGPstateData[[growth.levels]][["Growth"]][["Levels"]]
 				tf.growth.levels <- TRUE
 			}
 		}
@@ -368,7 +367,7 @@ function(panel.data,         ## REQUIRED
 			}
 		}
 		if (is.character(use.my.knots.boundaries)) {
-			if (is.null(SGPstateData[[use.my.knots.boundaries]][["Achievement"]][["Knots_Boundaries"]])) { 
+			if (is.null(SGP::SGPstateData[[use.my.knots.boundaries]][["Achievement"]][["Knots_Boundaries"]])) { 
 				tmp.messages <- c(tmp.messages, paste("\t\tNOTE: Knots and Boundaries are currently not implemented for the state indicated (",
 				use.my.knots.boundaries, "). Knots and boundaries will be calculated from the data.", "
 				Please contact the SGP package administrator to have your Knots and Boundaries included in the package\n", sep=""))
@@ -448,18 +447,18 @@ function(panel.data,         ## REQUIRED
 			}
 		} 
 		if (is.character(calculate.confidence.intervals)) {
-			if (!calculate.confidence.intervals %in% c(objects(SGPstateData), names(panel.data[['Panel_Data']]))) {
+			if (!calculate.confidence.intervals %in% c(objects(SGP::SGPstateData), names(panel.data[['Panel_Data']]))) {
 				tmp.messages <- c(tmp.messages, "\t\tNOTE: Please provide an appropriate state acronym or variable name in supplied data corresponding to CSEMs. See help page for details. SGPs will be calculated without confidence intervals.\n")
 				csem.tf <- FALSE
 			}
-			if (calculate.confidence.intervals %in% objects(SGPstateData)) {
-				if ("YEAR" %in% names(SGPstateData[[calculate.confidence.intervals]][["Assessment_Program_Information"]][["CSEM"]])) {
-					if (!sgp.labels$my.year %in% unique(SGPstateData[[calculate.confidence.intervals]][["Assessment_Program_Information"]][["CSEM"]][["YEAR"]])) {
+			if (calculate.confidence.intervals %in% objects(SGP::SGPstateData)) {
+				if ("YEAR" %in% names(SGP::SGPstateData[[calculate.confidence.intervals]][["Assessment_Program_Information"]][["CSEM"]])) {
+					if (!sgp.labels$my.year %in% unique(SGP::SGPstateData[[calculate.confidence.intervals]][["Assessment_Program_Information"]][["CSEM"]][["YEAR"]])) {
 						tmp.messages <- c(tmp.messages, "\t\tNOTE: SGPstateData contains year specific CSEMs but year requested is not available. Simulated SGPs and confidence intervals will not be calculated.\n")
 						csem.tf <- FALSE
 					} 
 				}
-				if (!sgp.labels$my.subject %in% unique(SGPstateData[[calculate.confidence.intervals]][["Assessment_Program_Information"]][["CSEM"]][["CONTENT_AREA"]])) {
+				if (!sgp.labels$my.subject %in% unique(SGP::SGPstateData[[calculate.confidence.intervals]][["Assessment_Program_Information"]][["CSEM"]][["CONTENT_AREA"]])) {
 					tmp.messages <- c(tmp.messages, paste("\t\tNOTE: SGPstateData does not contain content area CSEMs for requested content area '", sgp.labels$my.subject, "'. Simulated SGPs and confidence intervals will not be calculated.\n", sep=""))
 					csem.tf <- FALSE
 				}
@@ -505,18 +504,18 @@ function(panel.data,         ## REQUIRED
 			}
 		}
 		if (is.character(calculate.simex)) {
-			if (!calculate.simex %in% c(objects(SGPstateData), names(panel.data))) {
+			if (!calculate.simex %in% c(objects(SGP::SGPstateData), names(panel.data))) {
 				tmp.messages <- c(tmp.messages, "\t\tNOTE: Please provide an appropriate state acronym or variable name in supplied data corresponding to CSEMs. See help page for details. SGPs will be calculated without measurement error correction.\n")
 				simex.tf <- FALSE
 			}
-			if (calculate.simex %in% objects(SGPstateData)) {
-				if ("YEAR" %in% names(SGPstateData[[calculate.simex]][["Assessment_Program_Information"]][["CSEM"]])) {
-					if (!sgp.labels$my.year %in% unique(SGPstateData[[calculate.simex]][["Assessment_Program_Information"]][["CSEM"]][["YEAR"]])) {
+			if (calculate.simex %in% objects(SGP::SGPstateData)) {
+				if ("YEAR" %in% names(SGP::SGPstateData[[calculate.simex]][["Assessment_Program_Information"]][["CSEM"]])) {
+					if (!sgp.labels$my.year %in% unique(SGP::SGPstateData[[calculate.simex]][["Assessment_Program_Information"]][["CSEM"]][["YEAR"]])) {
 						tmp.messages <- c(tmp.messages, "\t\tNOTE: SGPstateData contains year specific CSEMs but year requested is not available. SGPs will be calculated without measurement error correction.\n")
 						simex.tf <- FALSE
 					}
 				}
-				if (!sgp.labels$my.subject %in% unique(SGPstateData[[calculate.simex]][["Assessment_Program_Information"]][["CSEM"]][["CONTENT_AREA"]])) {
+				if (!sgp.labels$my.subject %in% unique(SGP::SGPstateData[[calculate.simex]][["Assessment_Program_Information"]][["CSEM"]][["CONTENT_AREA"]])) {
 					tmp.messages <- c(tmp.messages, paste("\t\tNOTE: SGPstateData does not contain content area CSEMs for requested content area '", 
 						sgp.labels$my.subject, "'. SGPs will be calculated without measurement error correction.\n", sep=""))
 					simex.tf <- FALSE
@@ -825,10 +824,10 @@ function(panel.data,         ## REQUIRED
 		Knots_Boundaries[[tmp.path.knots.boundaries]] <- tmp.knots[!duplicated(names(tmp.knots))]
 	} else {
 		if (is.character(use.my.knots.boundaries)) {
-			if (!is.null(SGPstateData[[use.my.knots.boundaries]][["Achievement"]][["Knots_Boundaries"]])) {
+			if (!is.null(SGP::SGPstateData[[use.my.knots.boundaries]][["Achievement"]][["Knots_Boundaries"]])) {
 				for (h in unique(content_area.progression)) {
-					for (i in grep(h, names(SGPstateData[[use.my.knots.boundaries]][["Achievement"]][["Knots_Boundaries"]]), value=TRUE)) {
-						Knots_Boundaries[[tmp.path.knots.boundaries]][[i]] <- SGPstateData[[use.my.knots.boundaries]][["Achievement"]][["Knots_Boundaries"]][[i]]
+					for (i in grep(h, names(SGP::SGPstateData[[use.my.knots.boundaries]][["Achievement"]][["Knots_Boundaries"]]), value=TRUE)) {
+						Knots_Boundaries[[tmp.path.knots.boundaries]][[i]] <- SGP::SGPstateData[[use.my.knots.boundaries]][["Achievement"]][["Knots_Boundaries"]][[i]]
 					}
 				}
 			}
@@ -873,21 +872,21 @@ function(panel.data,         ## REQUIRED
 	### Calculate SIMEX corrected coefficient matrices and percentiles (if requested)
 
 	if (simex.tf) {
-		environment(simex.sgp) <- environment()
-		quantile.data.simex <- simex.sgp(
-						state=calculate.simex$state, 
-						variable=calculate.simex$variable,
-						csem.data.vnames=calculate.simex$csem.data.vnames,
-						csem.loss.hoss=calculate.simex$csem.loss.hoss, 
-						lambda=calculate.simex$lambda, 
-						B=calculate.simex$simulation.iterations,
-						simex.sample.size=calculate.simex$simex.sample.size,
-						extrapolation=calculate.simex$extrapolation, 
-						save.matrices=calculate.simex$save.matrices, 
-						simex.use.my.coefficient.matrices=calculate.simex$simex.use.my.coefficient.matrices,
-						calculate.simex.sgps=calculate.sgps,
-						verbose=calculate.simex$verbose)
-	
+		environment(simexSGP) <- environment()
+		quantile.data.simex <- simexSGP(
+			state=calculate.simex$state,
+			variable=calculate.simex$variable,
+			csem.data.vnames=calculate.simex$csem.data.vnames,
+			csem.loss.hoss=calculate.simex$csem.loss.hoss, 
+			lambda=calculate.simex$lambda, 
+			B=calculate.simex$simulation.iterations,
+			simex.sample.size=calculate.simex$simex.sample.size,
+			extrapolation=calculate.simex$extrapolation, 
+			save.matrices=calculate.simex$save.matrices, 
+			simex.use.my.coefficient.matrices=calculate.simex$simex.use.my.coefficient.matrices,
+			calculate.simex.sgps=calculate.sgps,
+			verbose=calculate.simex$verbose)
+								 
 		if(!is.null(quantile.data.simex[['MATRICES']])) {
 			tmp_sgp_1 <- list(Coefficient_Matrices = list(TMP_SIMEX=Coefficient_Matrices[[paste(tmp.path.coefficient.matrices, '.SIMEX', sep="")]]))
 			tmp_sgp_2 <- list(Coefficient_Matrices = list(TMP_SIMEX=quantile.data.simex[['MATRICES']]))
@@ -1065,8 +1064,8 @@ function(panel.data,         ## REQUIRED
 				sgps.for.gof <- "SGP"
 				sgps.for.gof.path <- tmp.path
 			}
-			if (is.character(goodness.of.fit) & goodness.of.fit %in% objects(SGPstateData) &&
-				!is.null(SGPstateData[[goodness.of.fit]][['Achievement']][['Cutscores']][[rev(content_area.progression)[2]]][[paste("GRADE_", rev(tmp.gp)[2], sep="")]])) {
+			if (is.character(goodness.of.fit) & goodness.of.fit %in% objects(SGP::SGPstateData) &&
+				!is.null(SGP::SGPstateData[[goodness.of.fit]][['Achievement']][['Cutscores']][[rev(content_area.progression)[2]]][[paste("GRADE_", rev(tmp.gp)[2], sep="")]])) {
 				GRADE <- YEAR <- CONTENT_AREA <- NULL
 				tmp.gof.data <- getAchievementLevel(
 							sgp_data=data.table(

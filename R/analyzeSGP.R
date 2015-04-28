@@ -39,8 +39,7 @@ function(sgp_object,
 	message(paste("\nStarted analyzeSGP", date()))
 
 	VALID_CASE <- CONTENT_AREA <- YEAR <- GRADE <- ID <- YEAR_WITHIN <- .EACHI <- SCALE_SCORE <- NULL
-	SGPstateData <- SGPstateData
-
+	SGPstateData <- SGP::SGPstateData ### Needed due to possible assignment of values to SGPstateData
 
 	###
 	### Create relevant analyzeSGP variables
@@ -126,7 +125,7 @@ function(sgp_object,
 	}
 
 	if ((sgp.projections | sgp.projections.lagged | sgp.projections.baseline | sgp.projections.lagged.baseline) & is.null(SGPstateData[[state]][["Achievement"]][["Cutscores"]])) {
-		message(paste("\tNOTE: Achievement Level cutscores for state, ", state, ", are not in embedded 'SGPstateData'. Projections and Lagged Projections will not be calculated"))
+		message(paste("\tNOTE: Achievement Level cutscores for state, ", state, ", are not in embedded 'SGPstateData'. Projections and Lagged Projections will not be calculated", sep=""))
 		sgp.projections <- sgp.projections.lagged <- sgp.projections.baseline <- sgp.projections.lagged.baseline <- FALSE
 	}
 	

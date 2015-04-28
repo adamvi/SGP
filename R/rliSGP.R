@@ -10,11 +10,10 @@ function(sgp_object,
 	update.ids=NULL,
 	parallel.config=NULL) {
 
+	YEAR <- GRADE <- ID <- NEW_ID <- .EACHI <- NULL
+
 	started.at <- proc.time()
 	message(paste("\nStarted rliSGP", date()), "\n")
-
-	YEAR <- GRADE <- ID <- NEW_ID <- .EACHI <- NULL
-	SGPstateData <- SGPstateData
 
         if (is.null(state)) {
                 tmp.name <- toupper(gsub("_", " ", deparse(substitute(sgp_object))))
@@ -67,7 +66,7 @@ function(sgp_object,
 	getRLIConfig <- function(content_areas, configuration.year, testing.window) {
 		tmp.list <- list()
 		for (i in content_areas) {
-			tmp.list[[i]] <- SGPstateData$RLI$SGP_Configuration$sgp.config.function$value(configuration.year, i, testing.window)
+			tmp.list[[i]] <- SGP::SGPstateData$RLI$SGP_Configuration$sgp.config.function$value(configuration.year, i, testing.window)
 		}
 		return(unlist(tmp.list, recursive=FALSE))
 	}
@@ -184,10 +183,10 @@ function(sgp_object,
 
 				if (testing.window=="FALL") tmp.separator <- "1" else tmp.separator <- "2"
 				tmp.index <- grep(configuration.year, names(sgp_object@SGP$Coefficient_Matrices))
-				assign(paste("RLI_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), tmp.separator, sep="."), sep=""), 
+				assign(paste(state, "_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), tmp.separator, sep="."), sep=""), 
 					convertToBaseline(sgp_object@SGP$Coefficient_Matrices[tmp.index]))
-				save(list=paste("RLI_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), tmp.separator, sep="."), sep=""), 
-					file=paste("RLI_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), tmp.separator, "Rdata", sep="."), sep=""))
+				save(list=paste(state, "_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), tmp.separator, sep="."), sep=""), 
+					file=paste(state, "_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), tmp.separator, "Rdata", sep="."), sep=""))
 			}
 		} ### END if (testing.window %in% c("FALL", "WINTER"))
 
@@ -232,10 +231,10 @@ function(sgp_object,
 				### Convert and save coefficient matrices
 
 				tmp.index <- grep(configuration.year, names(sgp_object.1@SGP$Coefficient_Matrices))
-				assign(paste("RLI_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "4", sep="."), sep=""), 
+				assign(paste(state, "_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "4", sep="."), sep=""), 
 					convertToBaseline(sgp_object.1@SGP$Coefficient_Matrices[tmp.index]))
-				save(list=paste("RLI_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "4", sep="."), sep=""), 
-					file=paste("RLI_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "4", "Rdata", sep="."), sep=""))
+				save(list=paste(state, "_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "4", sep="."), sep=""), 
+					file=paste(state, "_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "4", "Rdata", sep="."), sep=""))
 
 
 				### STEP 2: Get official SPRING scores for SGP spring analysis
@@ -271,10 +270,10 @@ function(sgp_object,
 				### Convert and save coefficient matrices
 
 				tmp.index <- grep(configuration.year, names(sgp_object.2@SGP$Coefficient_Matrices))
-				assign(paste("RLI_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "3", sep="."), sep=""), 
+				assign(paste(state, "_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "3", sep="."), sep=""), 
 					convertToBaseline(sgp_object.2@SGP$Coefficient_Matrices[tmp.index]))
-				save(list=paste("RLI_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "3", sep="."), sep=""), 
-					file=paste("RLI_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "3", "Rdata", sep="."), sep=""))
+				save(list=paste(state, "_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "3", sep="."), sep=""), 
+					file=paste(state, "_Baseline_Matrices_", paste(yearIncrement(configuration.year, 1), "3", "Rdata", sep="."), sep=""))
 			} ### END if (update.save.shell.only)
 		} ### END if (testing.window=="SPRING")
 	} ### END END_OF_WINDOW scripts
