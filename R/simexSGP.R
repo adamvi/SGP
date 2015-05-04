@@ -1,15 +1,62 @@
-simexSGP <- function(
-	state, variable=NULL, csem.data.vnames=NULL, csem.loss.hoss=NULL, 
-	lambda, B, simex.sample.size, extrapolation, save.matrices, simex.use.my.coefficient.matrices=NULL, calculate.simex.sgps, verbose=FALSE) 
-{
-	if(verbose) message("\n\tStarted SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date())
+`simexSGP` <- 
+function(
+	state,
+	variable=NULL,
+	csem.data.vnames=NULL,
+	csem.loss.hoss=NULL, 
+	lambda,
+	B,
+	simex.sample.size,
+	extrapolation,
+	save.matrices,
+	simex.use.my.coefficient.matrices=NULL,
+	calculate.simex.sgps,
+	verbose=FALSE) {
 	
-	GRADE <- CONTENT_AREA <- YEAR <- V1 <- Lambda <- tau <- b <- .SD <- TEMP <- NULL ## To avoid R CMD check warnings
+	if (is.null(verbose)) verbose <- FALSE
+	if (verbose) message("\n\tStarted SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date())
+	
+	### To avoid R CMD check warnings & NULL for data.table and objects established later
+
+	GRADE <- CONTENT_AREA <- YEAR <- V1 <- Lambda <- tau <- b <- .SD <- TEMP <- NULL
+
+	###  Set objects passed from studentGrowthPercentiles' environment to themselves (in order of R CMD check warnings issued)
+
+	content_area.progression <- content_area.progression
+	tmp.gp <- tmp.gp
+	get.my.knots.boundaries.path <- get.my.knots.boundaries.path
+	sgp.labels <- sgp.labels
+	use.my.coefficient.matrices <- use.my.coefficient.matrices
+	exact.grade.progression.sequence <- exact.grade.progression.sequence
+	num.prior <- num.prior
+	if (is.null(simex.use.my.coefficient.matrices)) coefficient.matrix.priors <- coefficient.matrix.priors else coefficient.matrix.priors <- NULL
+	.get.panel.data <- .get.panel.data
+	ss.data <- ss.data
+	by.grade <- by.grade
+	year.progression <- year.progression
+	Panel_Data <- Panel_Data
+	taus <- taus
+	Coefficient_Matrices <- Coefficient_Matrices
+	tmp.path.coefficient.matrices <- tmp.path.coefficient.matrices
+	grade.progression <- grade.progression
+	year_lags.progression <- year_lags.progression
+	knot.cut.percentiles <- knot.cut.percentiles
+	ID <- ID
+	parallel.config <- parallel.config
+	isotonize <- isotonize
+	sgp.loss.hoss.adjustment <- sgp.loss.hoss.adjustment
+	.get.quantiles <- .get.quantiles
+	print.other.gp <- print.other.gp
+	print.sgp.order <- print.sgp.order
+	return.norm.group.identifier <- return.norm.group.identifier
+	
 	my.path.knots.boundaries <- get.my.knots.boundaries.path(sgp.labels$my.subject, as.character(sgp.labels$my.year))
-	if (is.logical(simex.use.my.coefficient.matrices)) if(! simex.use.my.coefficient.matrices) simex.use.my.coefficient.matrices <- NULL
+	if (is.logical(simex.use.my.coefficient.matrices)) if (! simex.use.my.coefficient.matrices) simex.use.my.coefficient.matrices <- NULL
 	if (!is.null(state) & !is.null(variable)) stop("SIMEX config can not use both 'state' and 'variable' elements.")
 	if (!is.null(state) & !is.null(csem.data.vnames)) stop("SIMEX config can not use both 'state' and 'csem.data.vnames' elements.")
 	if (!is.null(csem.data.vnames) & !is.null(variable)) stop("SIMEX config can not use both 'csem.data.vnames' and 'variable' elements.")
+
+	### Utility functions
 	
 	rq.mtx <- function(tmp.gp.iter, lam, rqdata) {
 		mod <- character()
@@ -115,7 +162,7 @@ simexSGP <- function(
 			fitted[[paste("order_", k, sep="")]][1,] <- as.vector(.get.percentile.predictions(tmp.data, tmp.matrix))
 		}
 		
-		if(verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Started simulation process ", date())
+		if (verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Started simulation process ", date())
 
 		## perturb data
 		if (!is.null(csem.data.vnames)) {
@@ -167,7 +214,7 @@ simexSGP <- function(
 			
 			## Write big.data to disk and remove from memory
 			dir.create("tmp_data", recursive=TRUE, showWarnings=FALSE)
-			if(!exists('year.progression.for.norm.group')) year.progression.for.norm.group <- year.progression # Needed during Baseline Matrix construction
+			if (!exists('year.progression.for.norm.group')) year.progression.for.norm.group <- year.progression # Needed during Baseline Matrix construction
 			tmp.dbname <- paste("tmp_data/", paste(tail(paste(year.progression.for.norm.group, 
 																												paste(content_area.progression, grade.progression, sep="_"), sep="_"), num.prior+1), collapse="-"), ".sqlite", sep="")
 			con <- dbConnect(SQLite(), dbname = tmp.dbname)
@@ -195,7 +242,7 @@ simexSGP <- function(
 			}
 			
 			if (is.null(parallel.config)) { # Sequential
-				if(verbose) message("\t\t\tStarted coefficient matrix calculation, Lambda ", L, ": ", date())
+				if (verbose) message("\t\t\tStarted coefficient matrix calculation, Lambda ", L, ": ", date())
 				if (is.null(simex.use.my.coefficient.matrices)) {
 					for (z in seq_along(sim.iters)) {
 						if (is.null(simex.sample.size) || dim(tmp.data)[1] <= simex.sample.size) {
@@ -211,7 +258,7 @@ simexSGP <- function(
 				} else simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <- available.matrices[sim.iters]
 				
 				if (calculate.simex.sgps) {
-					if(verbose) message("\t\t\tStarted percentile prediction calculation, Lambda ", L, ": ", date())
+					if (verbose) message("\t\t\tStarted percentile prediction calculation, Lambda ", L, ": ", date())
 					for (z in seq_along(sim.iters)) {
 						fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- fitted[[paste("order_", k, sep="")]][which(lambda==L),] + 
 							as.vector(.get.percentile.predictions(dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname), 
@@ -228,7 +275,7 @@ simexSGP <- function(
 				
 				## Calculate coefficient matricies (if needed/requested)
 				if (is.null(simex.use.my.coefficient.matrices)) {
-					if(verbose) message("\t\t\tStarted coefficient matrix calculation, Lambda ", L, ": ", date())
+					if (verbose) message("\t\t\tStarted coefficient matrix calculation, Lambda ", L, ": ", date())
 					if (toupper(parallel.config[["BACKEND"]]) == "FOREACH") {
 						if (is.null(simex.sample.size) || dim(tmp.data)[1] <= simex.sample.size) {
 							simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <- 
@@ -278,7 +325,7 @@ simexSGP <- function(
 				
 				## get percentile predictions from coefficient matricies
 				if (calculate.simex.sgps) {
-					if(verbose) message("\t\t\tStarted percentile prediction calculation, Lambda ", L, ": ", date())
+					if (verbose) message("\t\t\tStarted percentile prediction calculation, Lambda ", L, ": ", date())
 					if (toupper(parallel.config[["BACKEND"]]) == "FOREACH") {
 						mtx.subset <- simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] # Save on memory copying to R SNOW workers
 						environment(.get.percentile.predictions) <- environment()
@@ -320,7 +367,7 @@ simexSGP <- function(
 			}
 		} ### END for (L in lambda[-1])
 		unlink(tmp.dbname)
-		if(verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Simulation process complete ", date())
+		if (verbose) message("\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Simulation process complete ", date())
 		
 		if (calculate.simex.sgps) {
 			switch(extrapolation,
@@ -332,7 +379,7 @@ simexSGP <- function(
 		}
 	} ### END for (k in simex.matrix.priors)
 	
-	if(verbose) message("\tFinished SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date())
+	if (verbose) message("\tFinished SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date())
 
 	if (is.null(save.matrices)) simex.coef.matrices <- NULL
 	if (calculate.simex.sgps) {
@@ -355,5 +402,5 @@ simexSGP <- function(
 				MATRICES = simex.coef.matrices))
 		}
 	}
-	if(verbose) message("\tFinished SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date(), "\n")
-} ### END .simex.sgp function
+	if (verbose) message("\tFinished SIMEX SGP calculation ", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " ", date(), "\n")
+} ### END simexSGP function
