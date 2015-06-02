@@ -43,6 +43,8 @@ function(panel.data,         ## REQUIRED
          parallel.config=NULL,
          calculate.simex=NULL,
          sgp.percentiles.set.seed=314159,
+         sgp.percentiles.equated=NULL,
+         SGPt=NULL,
          verbose.output=FALSE) {
 
 	started.at <- proc.time()
@@ -123,25 +125,29 @@ function(panel.data,         ## REQUIRED
 	}
 
 	get.my.knots.boundaries.path <- function(content_area, year) {
-		tmp.knots.boundaries.names <- 
-			names(Knots_Boundaries[[tmp.path.knots.boundaries]])[content_area==sapply(strsplit(names(Knots_Boundaries[[tmp.path.knots.boundaries]]), "[.]"), '[', 1)]
-		if (length(tmp.knots.boundaries.names)==0) {
-			return(paste("[['", tmp.path.knots.boundaries, "']]", sep=""))
-		} else {
-			tmp.knots.boundaries.years <- sapply(strsplit(tmp.knots.boundaries.names, "[.]"), function(x) x[2])
-			if (any(!is.na(tmp.knots.boundaries.years))) {
-				if (year %in% tmp.knots.boundaries.years) {
-					return(paste("[['", tmp.path.knots.boundaries, "']][['", content_area, ".", year, "']]", sep=""))
-				} else {
-					if (year==sort(c(year, tmp.knots.boundaries.years))[1]) {
-						return(paste("[['", tmp.path.knots.boundaries, "']][['", content_area, "']]", sep=""))
-					} else {
-						return(paste("[['", tmp.path.knots.boundaries, "']][['", content_area, ".", rev(sort(tmp.knots.boundaries.years))[1], "']]", sep=""))
-					}
-				}
+		if (is.null(sgp.percentiles.equated)) {
+			tmp.knots.boundaries.names <- 
+				names(Knots_Boundaries[[tmp.path.knots.boundaries]])[content_area==sapply(strsplit(names(Knots_Boundaries[[tmp.path.knots.boundaries]]), "[.]"), '[', 1)]
+			if (length(tmp.knots.boundaries.names)==0) {
+				return(paste("[['", tmp.path.knots.boundaries, "']]", sep=""))
 			} else {
-				return(paste("[['", tmp.path.knots.boundaries, "']][['", content_area, "']]", sep=""))
+				tmp.knots.boundaries.years <- sapply(strsplit(tmp.knots.boundaries.names, "[.]"), function(x) x[2])
+				if (any(!is.na(tmp.knots.boundaries.years))) {
+					if (year %in% tmp.knots.boundaries.years) {
+						return(paste("[['", tmp.path.knots.boundaries, "']][['", content_area, ".", year, "']]", sep=""))
+					} else {
+						if (year==sort(c(year, tmp.knots.boundaries.years))[1]) {
+							return(paste("[['", tmp.path.knots.boundaries, "']][['", content_area, "']]", sep=""))
+						} else {
+							return(paste("[['", tmp.path.knots.boundaries, "']][['", content_area, ".", rev(sort(tmp.knots.boundaries.years))[1], "']]", sep=""))
+						}
+					}
+				} else {
+					return(paste("[['", tmp.path.knots.boundaries, "']][['", content_area, "']]", sep=""))
+				}
 			}
+		} else {
+			return(paste("[['", tmp.path.knots.boundaries, "']][['", content_area, ".", sgp.percentiles.equated[['Year']], "']]", sep=""))
 		}
 	}
 
@@ -163,6 +169,10 @@ function(panel.data,         ## REQUIRED
 			mod <- paste(mod, " + bs(tmp.data[[", tmp.num.variables-i, "]], knots=", knt, ", Boundary.knots=", bnd, ")", sep="")
 			s4Ks <- paste(s4Ks, "knots_", tmp.gp.iter[i], "=", knt, ",", sep="")
 			s4Bs <- paste(s4Bs, "boundaries_", tmp.gp.iter[i], "=", bnd, ",", sep="")
+		}
+		if (!is.null(SGPt)) {
+			tmp.data <- data.table(Panel_Data[,c("ID", "TIME", "TIME_LAG"), with=FALSE], key="ID")[tmp.data][,c(names(tmp.data), "TIME", "TIME_LAG"), with=FALSE]
+			mod <- paste(mod, " + I(tmp.data[['TIME']]) + I(tmp.data[['TIME_LAG']])", sep="")
 		}
 		if (is.null(parallel.config)) {
 			tmp.mtx <- eval(parse(text=paste("rq(tmp.data[[", tmp.num.variables, "]] ~ ", substring(mod,4), ", tau=taus, data=tmp.data, method=rq.method)[['coefficients']]", sep="")))
@@ -191,7 +201,13 @@ function(panel.data,         ## REQUIRED
 			stopParallel(parallel.config, par.start)
 		}
 
-		tmp.version <- list(SGP_Package_Version=as.character(packageVersion("SGP")), Date_Prepared=date(), Matrix_Information=list(N=dim(tmp.data)[1]))
+		tmp.version <- list(
+			SGP_Package_Version=as.character(packageVersion("SGP")), 
+			Date_Prepared=date(), 
+			Matrix_Information=list(
+				N=dim(tmp.data)[1],
+				Model=paste("rq(tmp.data[[", tmp.num.variables, "]] ~ ", substring(mod,4), ", tau=taus, data=tmp.data, method=rq.method)[['coefficients']]", sep=""),
+				SGPt=unlist(SGPt)))
 
 		eval(parse(text=paste("new('splineMatrix', tmp.mtx, ", substring(s4Ks, 1, nchar(s4Ks)-1), "), ", substring(s4Bs, 1, nchar(s4Bs)-1), "), ",
 			"Content_Areas=list(as.character(tail(content_area.progression, k+1))), ",
@@ -237,7 +253,11 @@ function(panel.data,         ## REQUIRED
 			knt <- paste("my.matrix@Knots[[", k, "]]", sep="")
 			bnd <- paste("my.matrix@Boundaries[[", k, "]]", sep="")
 			mod <- paste(mod, ", bs(my.data[[", dim(my.data)[2]-k, "]], knots=", knt, ", Boundary.knots=", bnd, ")", sep="")
-		}	
+		}
+		if (!is.null(SGPt)) {
+			my.data <- data.table(Panel_Data[,c("ID", "TIME", "TIME_LAG"), with=FALSE], key="ID")[my.data][,c(names(my.data), "TIME", "TIME_LAG"), with=FALSE]
+			mod <- paste(mod, ", my.data[['TIME']], my.data[['TIME_LAG']]", sep="")
+		}
 		tmp <- eval(parse(text=paste(int, substring(mod, 2), ") %*% my.matrix", sep="")))
 		return(round(matrix(data.table(ID=rep(seq(dim(tmp)[1]), each=length(taus)), SCORE=as.vector(t(tmp)))[,.smooth.isotonize.row(SCORE, isotonize, sgp.loss.hoss.adjustment), by=ID][['V1']], 
 				ncol=length(taus), byrow=TRUE), digits=5))
@@ -415,7 +435,7 @@ function(panel.data,         ## REQUIRED
 					tail(grade.progression, k+1),
 					tail(year.progression, k+1),
 					tail(year_lags.progression, k),
-					my.matrix.order=k)[[1]]
+					my.matrix.order=k, my.matrix.time.dependency=SGPt)[[1]]
 				
 				fitted[[paste("order_", k, sep="")]][1,] <- as.vector(.get.percentile.predictions(tmp.data, tmp.matrix))
 			}
@@ -496,7 +516,7 @@ function(panel.data,         ## REQUIRED
 						tail(year_lags.progression, k),
 						my.exact.grade.progression.sequence=TRUE,
 						return.multiple.matrices=TRUE,
-						my.matrix.order=k), recursive=FALSE)
+						my.matrix.order=k, my.matrix.time.dependency=SGPt), recursive=FALSE)
 					
 					if (length(available.matrices) > B) sim.iters <- sample(1:length(available.matrices), B) # Stays as 1:B when length(available.matrices) == B
 					if (length(available.matrices) < B) sim.iters <- sample(1:length(available.matrices), B, replace=TRUE)
@@ -940,6 +960,19 @@ function(panel.data,         ## REQUIRED
 
 	if (!is.null(sgp.percentiles.set.seed)) set.seed(as.integer(sgp.percentiles.set.seed))
 
+	if (!is.null(SGPt)) {
+		if (identical(SGPt, TRUE)) SGPt <- list(TIME="TIME", TIME_LAG="TIME_LAG")
+		if (is.list(SGPt) && !all(c("TIME", "TIME_LAG") %in% names(SGPt))) {
+			tmp.messages <- c(tmp.messages, "\t\tNOTE: 'TIME' and 'TIME_LAG' are not contained in list supplied to 'SGPt' argument. SGPt is set to NULL")
+			SGPt <- NULL
+		} else {
+			if (!((all(unlist(SGPt) %in% names(panel.data))) | (all(unlist(SGPt) %in% names(panel.data$Panel_Data))))) {
+				tmp.messages <- c(tmp.messages, "\t\tNOTE: Variables", paste(unlist(SGPt), collapse=", "), "are not all contained in the supplied 'panel.data'. 'SGPt' is set to NULL.\n")
+				SGPt <- NULL
+			}
+		}
+	}
+
 	### Create object to store the studentGrowthPercentiles objects
 
 	tmp.objects <- c("Coefficient_Matrices", "Cutscores", "Goodness_of_Fit", "Knots_Boundaries", "Panel_Data", "SGPercentiles", "SGProjections", "Simulated_SGPs") 
@@ -981,7 +1014,7 @@ function(panel.data,         ## REQUIRED
 	if (is.matrix(panel.data)) {
 		Panel_Data <- panel.data <- as.data.table(panel.data)
 	}
-	if (identical(class(panel.data), "data.frame")) {
+	if (is.data.frame(panel.data)) {
 		Panel_Data <- as.data.table(panel.data)
 	}
 	if (identical(class(panel.data), "list") && !is.data.table(panel.data[["Panel_Data"]])) {
@@ -1008,6 +1041,10 @@ function(panel.data,         ## REQUIRED
 				Simulated_SGPs=Simulated_SGPs))
 	}
 
+	if (!is.null(SGPt)) {
+		setnames(Panel_Data, unlist(SGPt), c("TIME", "TIME_LAG"))
+	}
+
 	if (!is.null(panel.data.vnames)) {
 		if (!all(panel.data.vnames %in% names(Panel_Data))) {
 			tmp.messages <- c(tmp.messages, "\t\tNOTE: Supplied 'panel.data.vnames' are not all in the supplied Panel_Data. Analyses will continue with the intersection names contain in Panel_Data.\n")
@@ -1016,6 +1053,7 @@ function(panel.data,         ## REQUIRED
 	} else {
 		ss.data <- Panel_Data
 	}
+
 	if (dim(ss.data)[2] %% 2 != 1) {
 		stop(paste("Number of columns of supplied panel data (", dim(ss.data)[2], ") does not conform to data requirements. See help page for details."))
 	}
@@ -1145,7 +1183,6 @@ function(panel.data,         ## REQUIRED
 				SGProjections=SGProjections,
 				Simulated_SGPs=Simulated_SGPs))
 	}
-
 
 	### PROGRESSION variable creation:
 
@@ -1288,7 +1325,8 @@ function(panel.data,         ## REQUIRED
 					grade.progression, 
 					year.progression,
 					year_lags.progression,
-					exact.grade.progression.sequence)
+					exact.grade.progression.sequence,
+					my.matrix.time.dependency=SGPt)
 
 		tmp.orders <- sapply(tmp.matrices, function(x) length(x@Grade_Progression[[1]])-1)
 		max.order <- max(tmp.orders)
