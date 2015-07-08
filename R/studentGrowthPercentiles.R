@@ -265,7 +265,7 @@ function(panel.data,         ## REQUIRED
 	}
 
 	.get.quantiles <- function(data1, data2) {
-		TMP_TF <- SGP <- SGP_NEW <- .EACHI <- NULL
+		TMP_TF <- SGP <- SGP_NEW <- NULL
 		tmp <- data.table(ID=rep(seq(dim(data1)[1]), each=length(taus)+1), TMP_TF=as.vector(t(cbind(data1 < data2, FALSE))))[,which.min(TMP_TF)-1, by=ID][['V1']]
 		if (!is.null(sgp.quantiles.labels)) {
 			setattr(tmp <- as.factor(tmp), "levels", sgp.quantiles.labels)
@@ -570,7 +570,7 @@ function(panel.data,         ## REQUIRED
 							if (is.null(simex.sample.size) || dim(tmp.data)[1] <= simex.sample.size) {
 								simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <- 
 									foreach(z=iter(sim.iters), .packages=c("quantreg", "data.table"), 
-										.export=c("Knots_Boundaries", "rq.method", "taus", "content_area.progression", "tmp.slot.gp", "year.progression", "year_lags.progression"),
+										.export=c("Knots_Boundaries", "rq.method", "taus", "content_area.progression", "tmp.slot.gp", "year.progression", "year_lags.progression", "SGPt"),
 										.options.mpi=par.start$foreach.options, .options.multicore=par.start$foreach.options, .options.snow=par.start$foreach.options) %dopar% {
 											rq.mtx(tmp.gp.iter[1:k], lam=L, rqdata=dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
 												paste("select * from simex_data where b in ('", z, "')", sep="")))
@@ -578,7 +578,7 @@ function(panel.data,         ## REQUIRED
 							} else {
 								simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <-
 									foreach(z=iter(sim.iters), .packages=c("quantreg", "data.table"), 
-										.export=c("Knots_Boundaries", "rq.method", "taus", "content_area.progression", "tmp.slot.gp", "year.progression", "year_lags.progression"),
+										.export=c("Knots_Boundaries", "rq.method", "taus", "content_area.progression", "tmp.slot.gp", "year.progression", "year_lags.progression", "SGPt"),
 										.options.mpi=par.start$foreach.options, .options.multicore=par.start$foreach.options, .options.snow=par.start$foreach.options) %dopar% {
 											rq.mtx(tmp.gp.iter[1:k], lam=L, rqdata=dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
 												paste("select * from simex_data where b in ('", z, "')", sep=""))[sample(seq(dim(tmp.data)[1]), simex.sample.size),])
@@ -612,6 +612,22 @@ function(panel.data,         ## REQUIRED
 						simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]] <- available.matrices[sim.iters]
 					}
 					
+					if (!all(sapply(simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]], is.splineMatrix))) {
+						recalc.index <- which(!sapply(simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]], is.splineMatrix))
+						message("\n\t\t", rev(content_area.progression)[1], " Grade ", rev(tmp.gp)[1], " Order ", k, " Coefficient Matrix process(es) ", recalc.index, "FAILED!  Attempting to recalculate sequentially...")
+						for (z in recalc.index) {
+							if (is.null(simex.sample.size) || dim(tmp.data)[1] <= simex.sample.size) {
+								simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]] <-
+									rq.mtx(tmp.gp.iter[1:k], lam=L, rqdata=dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname), 
+										paste("select * from simex_data where b in ('", z, "')", sep="")))
+							} else {
+								simex.coef.matrices[[paste("qrmatrices", tail(tmp.gp,1), k, sep="_")]][[paste("lambda_", L, sep="")]][[z]] <-
+									rq.mtx(tmp.gp.iter[1:k], lam=L, rqdata=dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname), 
+										paste("select * from simex_data where b in ('", z, "')", sep=""))[sample(seq(dim(tmp.data)[1]), simex.sample.size),])
+							}
+						}
+					}
+
 					## get percentile predictions from coefficient matricies
 					if (calculate.simex.sgps) {
 						if (verbose) message("\t\t\tStarted percentile prediction calculation, Lambda ", L, ": ", date())
@@ -620,7 +636,7 @@ function(panel.data,         ## REQUIRED
 							environment(.get.percentile.predictions) <- environment()
 							environment(.smooth.isotonize.row) <- environment()
 							fitted[[paste("order_", k, sep="")]][which(lambda==L),] <- 
-								foreach(z=iter(sim.iters), .combine="+", .export=c('tmp.gp', 'taus', 'sgp.loss.hoss.adjustment', 'isotonize'),
+								foreach(z=iter(sim.iters), .combine="+", .export=c('tmp.gp', 'taus', 'sgp.loss.hoss.adjustment', 'isotonize', 'SGPt'),
 									.options.multicore=par.start$foreach.options) %dopar% { # .options.snow=par.start$foreach.options
 										as.vector(.get.percentile.predictions(my.matrix=mtx.subset[[z]], my.data=dbGetQuery(dbConnect(SQLite(), dbname = tmp.dbname),
 											paste("select ", paste(c("ID", paste('prior_', k:1, sep=""), "final_yr"), collapse=", "), " from simex_data where b in ('",z,"')", sep="")))/B)
@@ -1068,7 +1084,7 @@ function(panel.data,         ## REQUIRED
 
 	if (!is.null(panel.data.vnames)) {
 		if (!all(panel.data.vnames %in% names(Panel_Data))) {
-			tmp.messages <- c(tmp.messages, "\t\tNOTE: Supplied 'panel.data.vnames' are not all in the supplied Panel_Data. Analyses will continue with the intersection names contain in Panel_Data.\n")
+			tmp.messages <- c(tmp.messages, "\t\tNOTE: Supplied 'panel.data.vnames' are not all in the supplied Panel_Data.\n\t\t\tAnalyses will continue with the intersection names contain in Panel_Data.\n")
 		}
 		ss.data <- Panel_Data[,intersect(panel.data.vnames, names(Panel_Data)), with=FALSE]
 	} else {
@@ -1088,7 +1104,7 @@ function(panel.data,         ## REQUIRED
 		by.grade <- TRUE
 
 		if (length(tmp.gp[!is.na(tmp.gp)]) > num.panels) {
-			tmp.messages <- c(tmp.messages, paste("\t\tNOTE: Supplied 'grade progression', grade.progression=c(", paste(grade.progression, collapse=","), "), exceeds number of panels (", num.panels, ") in provided data.\n\t\t Analyses will utilize maximum number of priors supplied by the data.\n", sep=""))
+			tmp.messages <- c(tmp.messages, paste("\t\tNOTE: Supplied 'grade progression', grade.progression=c(", paste(grade.progression, collapse=","), "), exceeds number of panels (", num.panels, ") in provided data.\n\t\t\tAnalyses will utilize maximum number of priors supplied by the data.\n", sep=""))
 		tmp.gp <- tail(grade.progression, num.panels)
 	}}
 	if (!missing(subset.grade) & missing(grade.progression)) {
@@ -1104,7 +1120,7 @@ function(panel.data,         ## REQUIRED
 			stop("Specified num.prior not positive integer(s)")
 		}
 		if (num.prior > length(tmp.gp[!is.na(tmp.gp)])-1) {
-			tmp.messages <- c(tmp.messages, paste("\t\tNOTE: Specified argument num.prior (", num.prior, ") exceeds number of panels of data supplied. Analyses will utilize maximum number of priors possible.\n", sep=""))
+			tmp.messages <- c(tmp.messages, paste("\t\tNOTE: Specified argument num.prior (", num.prior, ") exceeds number of panels of data supplied.\n\t\t\tAnalyses will utilize maximum number of priors possible.\n", sep=""))
 			num.prior <- length(tmp.gp[!is.na(tmp.gp)])-1
 		} else {
 			tmp.gp <- grade.progression <- tail(tmp.gp[!is.na(tmp.gp)], num.prior+1)
@@ -1187,7 +1203,7 @@ function(panel.data,         ## REQUIRED
 	} 
 
 	if (max.cohort.size < sgp.cohort.size) {
-		tmp.messages <- paste("\t\tNOTE: Supplied data together with grade progression contains fewer than the minimum cohort size. \n\t\tOnly", max.cohort.size, 
+		tmp.messages <- paste("\t\tNOTE: Supplied data together with grade progression contains fewer than the minimum cohort size.\n\t\tOnly", max.cohort.size, 
 			"valid cases provided with", sgp.cohort.size, "indicated as minimum cohort N size. Check data, function arguments and see help page for details.\n")
 		message(paste("\tStarted studentGrowthPercentiles", started.date))
 		message(paste("\t\tSubject: ", sgp.labels$my.subject, ", Year: ", sgp.labels$my.year, ", Grade Progression: ", 
@@ -1212,13 +1228,14 @@ function(panel.data,         ## REQUIRED
 		content_area.progression <- rep(sgp.labels$my.subject, length(tmp.gp))
 	} else {
 		if (!identical(class(content_area.progression), "character")) {
-			stop("content_area.progression should be a character vector. See help page for details.")
+			stop("The 'content_area.progression' vector/argument should be a character vector. See help page for details.")
 		}
 		if (!identical(tail(content_area.progression, 1), sgp.labels[['my.subject']])) {
-			stop("The last element in the content_area.progression must be identical to 'my.subject' of the sgp.labels. See help page for details.")
+			stop("The last element in the 'content_area.progression' vector/argument must be identical to 'my.subject' of the sgp.labels. See help page for details.")
 		}
 		if (length(content_area.progression) != length(tmp.gp)) {
-			tmp.messages <- c(tmp.messages, "\t\tNOTE: The content_area.progression vector does not have the same number of elements as the grade.progression vector.\n")
+			tmp.messages <- c(tmp.messages, "\t\tNOTE: The 'content_area.progression' vector/argument does not have the same number of elements as the 'grade.progression' vector/argument.\n\t\t\t'content_area.progression' will be trimmed based upon the length of 'grade.progression'.\n")
+			content_area.progression <- tail(content_area.progression, length(tmp.gp))
 		}
 	}
 
@@ -1226,17 +1243,18 @@ function(panel.data,         ## REQUIRED
 		if (is.character(type.convert(as.character(grade.progression), as.is=TRUE))) {
 			stop("\tNOTE: Non-numeric grade progressions must be accompanied by arguments 'year.progression' and 'year_lags.progression'")
 		} else {
-			year.progression <- year.progression.for.norm.group <- rev(yearIncrement(sgp.labels[['my.year']], c(0, -cumsum(rev(diff(type.convert(as.character(grade.progression))))))))
+			year.progression <- year.progression.for.norm.group <- 
+				tail(rev(yearIncrement(sgp.labels[['my.year']], c(0, -cumsum(rev(diff(type.convert(as.character(grade.progression)))))))), length(tmp.gp))
 		}
 	}
 
 	if (is.null(year.progression) & !is.null(year_lags.progression)) {
 		if (!identical(sgp.labels[['my.extra.label']], "BASELINE")) {
-			year.progression <- year.progression.for.norm.group <- rev(yearIncrement(sgp.labels[['my.year']], c(0, -cumsum(rev(year_lags.progression)))))
+			year.progression <- year.progression.for.norm.group <- tail(rev(yearIncrement(sgp.labels[['my.year']], c(0, -cumsum(rev(year_lags.progression))))), length(tmp.gp))
 		}
 		if (identical(sgp.labels[['my.extra.label']], "BASELINE")) {
 			year.progression <- rep("BASELINE", length(tmp.gp))
-			year.progression.for.norm.group <- rev(yearIncrement(sgp.labels[['my.year']], c(0, -cumsum(rev(year_lags.progression)))))
+			year.progression.for.norm.group <- tail(rev(yearIncrement(sgp.labels[['my.year']], c(0, -cumsum(rev(year_lags.progression))))), length(tmp.gp))
 		}
 		if (!identical(class(year.progression), "character")) {
 			stop("year.area.progression should be a character vector. See help page for details.")
@@ -1250,6 +1268,7 @@ function(panel.data,         ## REQUIRED
 	}
 
 	if (!is.null(year.progression) & is.null(year_lags.progression)) {
+		year.progression <- tail(year.progression, length(tmp.gp))
 		if (year.progression[1] == "BASELINE") {
 			year_lags.progression <- rep(1, length(year.progression)-1)
 			year.progression.for.norm.group <- year.progression
@@ -1493,7 +1512,8 @@ function(panel.data,         ## REQUIRED
 		}
 
 		if (!is.null(return.norm.group.dates)) {
-			my.tmp <- data.table(Panel_Data[,c("ID", grep(return.norm.group.dates, names(Panel_Data), value=TRUE)), with=FALSE], key="ID")[list(quantile.data$ID),-1,with=FALSE]
+			my.tmp <- data.table(Panel_Data[,c("ID", setdiff(grep("TIME", names(Panel_Data), value=TRUE), grep("TIME_LAG", names(Panel_Data), value=TRUE))), with=FALSE], 
+				key="ID")[list(quantile.data$ID),-1,with=FALSE]
 			quantile.data[,SGP_NORM_GROUP_DATES:=gsub("NA; ", "", do.call(paste, c(as.data.table(lapply(my.tmp, function(x) as.Date(x, origin="1970-01-01"))), list(sep="; "))))]
 		}
 

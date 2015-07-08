@@ -40,7 +40,7 @@ function(sgp_object,
 	started.at <- proc.time()
 	message(paste("\nStarted analyzeSGP", date()))
 
-	VALID_CASE <- CONTENT_AREA <- YEAR <- GRADE <- ID <- YEAR_WITHIN <- .EACHI <- SCALE_SCORE <- NULL
+	VALID_CASE <- CONTENT_AREA <- YEAR <- GRADE <- ID <- YEAR_WITHIN <- SCALE_SCORE <- NULL
 	SGPstateData <- SGP::SGPstateData ### Needed due to possible assignment of values to SGPstateData
 
 	###
@@ -172,7 +172,7 @@ function(sgp_object,
 
 	if (any(c("SIMEX", "TAUS") %in% names(parallel.config[['WORKERS']]))) {
 		lower.level.parallel.config <- parallel.config
-		parallel.config <- NULL
+		if (length(names(parallel.config[['WORKERS']])) <= 2) parallel.config <- NULL # Only NULL out parallel.config if ONLY SIMEX and TAUS are requested
 	} else lower.level.parallel.config <- NULL
 
 	if (identical(calculate.simex, TRUE)) {
@@ -262,15 +262,16 @@ function(sgp_object,
 		}
 	}
 
+	if (!is.null(SGPstateData[[state]][["SGP_Configuration"]][['sgp.use.my.sgp_object.baseline.coefficient.matrices']]) && is.null(sgp.use.my.sgp_object.baseline.coefficient.matrices)) {
+		sgp.use.my.sgp_object.baseline.coefficient.matrices <- SGPstateData[[state]][["SGP_Configuration"]][['sgp.use.my.sgp_object.baseline.coefficient.matrices']]
+	}
+
 	if (identical(sgp.use.my.sgp_object.baseline.coefficient.matrices, FALSE)) sgp.use.my.sgp_object.baseline.coefficient.matrices <- NULL
 
 	if (!is.null(sgp.use.my.sgp_object.baseline.coefficient.matrices) && length(grep("BASELINE", names(sgp_object@SGP$Coefficient_Matrices)))==0) {
 		sgp.use.my.sgp_object.baseline.coefficient.matrices <- NULL
 	}
 
-	if (!is.null(SGPstateData[[state]][["SGP_Configuration"]][['sgp.use.my.sgp_object.baseline.coefficient.matrices']]) && is.null(sgp.use.my.sgp_object.baseline.coefficient.matrices)) {
-		sgp.use.my.sgp_object.baseline.coefficient.matrices <- SGPstateData[[state]][["SGP_Configuration"]][['sgp.use.my.sgp_object.baseline.coefficient.matrices']]
-	}
 
 	### 
 	### Utility functions
@@ -362,7 +363,7 @@ function(sgp_object,
 			message(paste("\tNOTE: Analyses involving equating only occur in most recent year. 'years' argument changed to ", year.for.equate, ".", sep=""))
 			years <- year.for.equate
 		}
-		if (is.null(SGPstateData[["WIDA_MI"]][["Assessment_Program_Information"]][["Assessment_Transition"]][['Baseline_Projections_in_Transition_Year']]) & 
+		if (is.null(SGPstateData[[state]][["Assessment_Program_Information"]][["Assessment_Transition"]][['Baseline_Projections_in_Transition_Year']]) & 
 			(sgp.percentiles.baseline | sgp.projections.baseline | sgp.projections.lagged.baseline)) {
 				message("\tNOTE: Analyses involving equating are not possible with baseline analyses. Arguments related to baseline analyses are set to FALSE.")
 				sgp.percentiles.baseline <- sgp.projections.baseline <- sgp.projections.lagged.baseline <- FALSE
@@ -1519,7 +1520,7 @@ function(sgp_object,
 					.options.multicore=par.start$foreach.options, .options.mpi=par.start$foreach.options, .options.redis=par.start$foreach.options) %dopar% {
 					return(studentGrowthProjections(
 						panel.data=list(
-							Panel_Data=getPanelData(tmp_sgp_data_for_analysis, state=state, "sgp.projections.lagged", sgp.iter, SGPt=SGPt), 
+							Panel_Data=getPanelData(tmp_sgp_data_for_analysis, state=state, "sgp.projections.lagged.baseline", sgp.iter, SGPt=SGPt), 
 							Coefficient_Matrices=selectCoefficientMatrices(tmp_sgp_object, "BASELINE"), 
 							Knots_Boundaries=getKnotsBoundaries(sgp.iter, state, "sgp.projections.lagged")),
 						sgp.labels=list(my.year=tail(sgp.iter[["sgp.panel.years"]], 1), my.subject=tail(sgp.iter[["sgp.content.areas"]], 1), 
@@ -1560,7 +1561,7 @@ function(sgp_object,
 			if (par.start$par.type == 'SNOW') {
 				tmp <- clusterApplyLB(par.start$internal.cl, par.sgp.config[['sgp.projections.lagged.baseline']], function(sgp.iter) studentGrowthProjections(
 					panel.data=list(
-						Panel_Data=getPanelData(tmp_sgp_data_for_analysis, state=state, "sgp.projections.lagged", sgp.iter, SGPt=SGPt), 
+						Panel_Data=getPanelData(tmp_sgp_data_for_analysis, state=state, "sgp.projections.lagged.baseline", sgp.iter, SGPt=SGPt), 
 						Coefficient_Matrices=selectCoefficientMatrices(tmp_sgp_object, "BASELINE"), 
 						Knots_Boundaries=getKnotsBoundaries(sgp.iter, state, "sgp.projections.lagged")),
 					sgp.labels=list(my.year=tail(sgp.iter[["sgp.panel.years"]], 1), my.subject=tail(sgp.iter[["sgp.content.areas"]], 1), 
@@ -1601,7 +1602,7 @@ function(sgp_object,
 			if (par.start$par.type == 'MULTICORE') {
 				tmp <- mclapply(par.sgp.config[['sgp.projections.lagged.baseline']], function(sgp.iter) studentGrowthProjections(
 					panel.data=list(
-						Panel_Data=getPanelData(tmp_sgp_data_for_analysis, state=state, "sgp.projections.lagged", sgp.iter, SGPt=SGPt), 
+						Panel_Data=getPanelData(tmp_sgp_data_for_analysis, state=state, "sgp.projections.lagged.baseline", sgp.iter, SGPt=SGPt), 
 						Coefficient_Matrices=selectCoefficientMatrices(tmp_sgp_object, "BASELINE"), 
 						Knots_Boundaries=getKnotsBoundaries(sgp.iter, state, "sgp.projections.lagged")),
 					sgp.labels=list(my.year=tail(sgp.iter[["sgp.panel.years"]], 1), my.subject=tail(sgp.iter[["sgp.content.areas"]], 1), 
@@ -1922,7 +1923,7 @@ function(sgp_object,
 		if (sgp.projections.lagged.baseline) {
 			for (sgp.iter in par.sgp.config[['sgp.projections.lagged.baseline']]) {
 
-				panel.data=within(tmp_sgp_object, assign("Panel_Data", getPanelData(tmp_sgp_data_for_analysis, state=state, "sgp.projections.lagged", sgp.iter, SGPt=SGPt)))
+				panel.data=within(tmp_sgp_object, assign("Panel_Data", getPanelData(tmp_sgp_data_for_analysis, state=state, "sgp.projections.lagged.baseline", sgp.iter, SGPt=SGPt)))
 				tmp.knots.boundaries <- getKnotsBoundaries(sgp.iter, state, "sgp.projections.lagged")
 				panel.data[["Knots_Boundaries"]][[names(tmp.knots.boundaries)]] <- tmp.knots.boundaries[[names(tmp.knots.boundaries)]]
 
