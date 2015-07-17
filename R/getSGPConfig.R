@@ -252,7 +252,7 @@ function(sgp_object,
 					if (is.logical(sgp.config[[a]][['sgp.calculate.simex']])) {
 						if (sgp.config[[a]][['sgp.calculate.simex']]) {
 							par.sgp.config[[b.iter[b]]][['sgp.calculate.simex']] <- list(
-								state=state, lambda=seq(0,2,0.5), simulation.iterations=50, simex.sample.size=25000, extrapolation="linear", save.matrices=TRUE)
+								state=state, lambda=seq(0,2,0.5), simulation.iterations=75, simex.sample.size=5000, extrapolation="linear", save.matrices=TRUE)
 						} else par.sgp.config[[b.iter[b]]][['sgp.calculate.simex']] <- NULL # FALSE - same as NULL
 					} else {
 					# NOTE: if SIMEX configs are supplied to analyzeSGP in both a calculate.simex argument (as list) AND in a sgp.config element, the sgp.config is chosen here:
@@ -340,8 +340,8 @@ function(sgp_object,
 				if (!is.null(sgp.config[[a]][['sgp.calculate.simex.baseline']])) {
 					if (is.logical(sgp.config[[a]][['sgp.calculate.simex.baseline']])) {
 						if (sgp.config[[a]][['sgp.calculate.simex.baseline']]) {
-							par.sgp.config[[b.iter[b]]][['sgp.calculate.simex.baseline']] <- list(state=state, lambda=seq(0,2,0.5), simulation.iterations=50,
-								simex.sample.size=25000, extrapolation="linear", save.matrices=FALSE, simex.use.my.coefficient.matrices = TRUE)
+							par.sgp.config[[b.iter[b]]][['sgp.calculate.simex.baseline']] <- list(state=state, lambda=seq(0,2,0.5), simulation.iterations=75,
+								simex.sample.size=5000, extrapolation="linear", save.matrices=FALSE, simex.use.my.coefficient.matrices = TRUE)
 						} else par.sgp.config[[b.iter[b]]][['sgp.calculate.simex.baseline']] <- NULL # FALSE - same as NULL
 					} else {
 						par.sgp.config[[b.iter[b]]][['sgp.calculate.simex.baseline']] <- sgp.config[[a]][['sgp.calculate.simex.baseline']]
@@ -538,7 +538,6 @@ function(sgp_object,
 		if (length(sgp.config.list[['sgp.percentiles.baseline']]) > 0) {
 			for (i in seq_along(sgp.config.list[['sgp.percentiles.baseline']])) sgp.config.list[['sgp.percentiles.baseline']][[i]][['sgp.matrices']] <- NULL
 			tmp.config <- sgp.config.list[['sgp.percentiles.baseline']][sapply(sgp.config.list[['sgp.percentiles.baseline']], test.projection.iter)]
-			if (length(tmp.config) > 0) for (f in seq_along(tmp.config)) tmp.config[[f]][['sgp.exact.grade.progression']] <- FALSE
 			sgp.config.list[['sgp.percentiles.baseline']] <- tmp.config
 		}
 

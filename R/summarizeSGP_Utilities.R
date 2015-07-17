@@ -136,7 +136,8 @@ function(x,
 	result.digits=2) {
 
 	if (is.null(weight)) {
-		round(mean(as.numeric(x), na.rm=TRUE), digits=result.digits)
+		tmp.x <- x[!is.na(x)]
+		round(sum(tmp.x)/length(tmp.x), digits=result.digits)
 	} else {
 		round(weighted.mean(as.numeric(x), w=weight, na.rm=TRUE), digits=result.digits)
 	}
@@ -178,9 +179,12 @@ function(dat,
 	conf.quantiles=NULL,
 	nboot=100) {
 
+	ID <- SCORE <- NULL
 	CI <- c(NA,NA); SE <- NA
 	if (!all(is.na(dat))) {
-		out <- sapply(seq(nboot), function(x) median(sample(dat, length(dat), replace=TRUE), na.rm=TRUE))
+		dat.no.na <- dat[!is.na(dat)]
+		out <- data.table(ID=rep(seq_along(dat.no.na)), SCORE=dat.no.na[sample.int(length(dat.no.na), length(dat.no.na)*nboot, replace=TRUE)])[,median(SCORE), by=ID][['V1']]
+#		out <- replicate(nboot, median(sample(dat, length(dat), replace=TRUE), na.rm=TRUE))
 		if (!is.null(conf.quantiles)) {
 			CI <- round(quantile(out, conf.quantiles, na.rm=TRUE), digits=1)
 		} else {
