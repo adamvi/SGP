@@ -37,6 +37,7 @@ function(
 			Rprof("testSGP(0)_Memory_Profile_Part_1.out", memory.profiling=TRUE)
 		}
 
+		started.at.overall <- proc.time()
 		eval(parse(text=expression.to.evaluate))
 	
 		### TEST of SGP Variable
@@ -81,7 +82,7 @@ function(
 			tmp.messages <- c(tmp.messages, "\t\tTest of variable SGP_LEVEL, part 1: FAIL\n")
 		}
 
-		tmp.messages <- c(tmp.messages, "\t##### End testSGP test number 0: Part 1 #####\n")
+		tmp.messages <- c(tmp.messages, "\t##### End testSGP test number 0, Part 1: ", convertTime(timetaken(started.at.overall)), "#####\n")
 
 
 		### Part 2
@@ -96,6 +97,7 @@ function(
 		}
 
 		if (save.results) expression.to.evaluate <- paste(expression.to.evaluate, "dir.create('Data', showWarnings=FALSE)", "save(Demonstration_SGP, file='Data/Demonstration_SGP.Rdata')", sep="\n")
+		started.at.intermediate <- proc.time()
 		eval(parse(text=expression.to.evaluate))
 	
 		### TEST of dimension of table READING.2015.LAGGED dimensions
@@ -124,8 +126,8 @@ function(
 			tmp.messages <- c(tmp.messages, "\t\tTest of variable P84_PROJ_YEAR_4, part 2: FAIL\n")
 		}
 
-		tmp.messages <- c(tmp.messages, "\t##### End testSGP test number 0: Part 2 #####\n")
-		tmp.messages <- c(tmp.messages, "\n##### End testSGP test number 0 #####\n")
+		tmp.messages <- c(tmp.messages, paste("\t##### End testSGP test number 0, Part 2: ", convertTime(timetaken(started.at.intermediate)), "#####\n"))
+		tmp.messages <- c(tmp.messages, paste("\n##### End testSGP test number 0: ", convertTime(timetaken(started.at.overall)), "#####\n"))
 		cat(tmp.messages)
 
 	 } ### End TEST_NUMBER 0
@@ -157,7 +159,8 @@ function(
 		cat(paste("EVALUATING:\n", expression.to.evaluate, sep=""), fill=TRUE)
 
 		if (memory.profile) Rprof("testSGP(1)_Memory_Profile.out", memory.profiling=TRUE)
-	
+
+		started.at.overall <- proc.time()	
 		eval(parse(text=expression.to.evaluate))
 
 		if (memory.profile) {
@@ -246,7 +249,7 @@ function(
 			tmp.messages <- c(tmp.messages, "\tTest of variable PERCENT_AT_ABOVE_PROFICIENT_PRIOR: FAIL\n")
 		}
 
-		tmp.messages <- c(tmp.messages, paste("\n##### End testSGP test number", TEST_NUMBER, "#####\n"))
+		tmp.messages <- c(tmp.messages, paste("\n##### End testSGP test number ", TEST_NUMBER, ":  ", convertTime(timetaken(started.at.overall)), " #####\n", sep=""))
 		cat(tmp.messages)
 
 	} ### End TEST_NUMBER 1 & 1B
@@ -764,6 +767,7 @@ SGPstateData[["DEMO"]][["Student_Report_Information"]] <-
 	sgpData_LONG <- SGPdata::sgpData_LONG
 
 	if (is.null(test.option[['calculate.simex.baseline']])) calculate.simex.baseline <- FALSE else calculate.simex.baseline <- TRUE
+	simex.parameters <- "list(state='DEMO', lambda=seq(0,2,0.5), simulation.iterations=50, simex.sample.size=25000, extrapolation='linear', save.matrices=TRUE)"
 
 	###  The test of SIMEX baseline functionality requires the DEMO SIMEX matrices to be loaded manually.
 	# SGPstateData[["DEMO"]][["Baseline_splineMatrix"]][["Coefficient_Matrices"]] <- c(SGPstateData[["DEMO"]][["Baseline_splineMatrix"]][["Coefficient_Matrices"]], DEMO_SIMEX_Baseline_Matrices)
@@ -805,7 +809,7 @@ SGPstateData[["DEMO"]][["Student_Report_Information"]] <-
 	}
 
 	expression.to.evaluate <- 
-		paste("\nDemonstration_SGP <- prepareSGP(sgpData_LONG, create.additional.variables=FALSE)\n\nDemonstration_SGP <- analyzeSGP(\n\tsgp_object=Demonstration_SGP,\n\tyears='2014_2015',\n\tcontent_areas='READING',\n\tsgp.percentiles.baseline.max.order=2,\n\tsgp.percentiles=TRUE,\n\tsgp.projections=FALSE,\n\tsgp.projections.lagged=FALSE,\n\tsgp.percentiles.baseline=", calculate.simex.baseline,",\n\tsgp.projections.baseline=FALSE,\n\tsgp.projections.lagged.baseline=FALSE,\n\tsimulate.sgps=FALSE,\n\tcalculate.simex=TRUE,\n\tcalculate.simex.baseline=", calculate.simex.baseline,",\n\tparallel.config=", parallel.config,"\n)\n", sep="")
+		paste("\nDemonstration_SGP <- prepareSGP(sgpData_LONG, create.additional.variables=FALSE)\n\nDemonstration_SGP <- analyzeSGP(\n\tsgp_object=Demonstration_SGP,\n\tyears='2014_2015',\n\tcontent_areas='READING',\n\tsgp.percentiles.baseline.max.order=2,\n\tsgp.percentiles=TRUE,\n\tsgp.projections=FALSE,\n\tsgp.projections.lagged=FALSE,\n\tsgp.percentiles.baseline=", calculate.simex.baseline,",\n\tsgp.projections.baseline=FALSE,\n\tsgp.projections.lagged.baseline=FALSE,\n\tsimulate.sgps=FALSE,\n\tcalculate.simex=", simex.parameters, ",\n\tcalculate.simex.baseline=", simex.parameters,",\n\tparallel.config=", parallel.config,"\n)\n", sep="")
 		
 	cat("##### Begin testSGP test number 4, Part 1 #####", fill=TRUE)
 	cat("## Grade-Level, Cohort and Baseline Tests with auto sgp.config construction. ##\n", fill=TRUE)
@@ -815,7 +819,8 @@ SGPstateData[["DEMO"]][["Student_Report_Information"]] <-
 	if (memory.profile) {
 		Rprof("testSGP(4.1)_Memory_Profile.out", memory.profiling=TRUE)
 	}
-	
+
+	started.at.overall <- proc.time()	
 	eval(parse(text=expression.to.evaluate))
 
 	### TEST of SGP_SIMEX variable
@@ -837,7 +842,7 @@ SGPstateData[["DEMO"]][["Student_Report_Information"]] <-
 			tmp.messages <- c(tmp.messages, "\t\tTest of variable SGP_SIMEX_BASELINE: FAIL\n")
 		}
 	}
-	tmp.messages <- c(tmp.messages, "\n\t##### End testSGP test number 4, Part 1 #####\n")
+	tmp.messages <- c(tmp.messages, "\n\t##### End testSGP test number 4, Part 1: ", convertTime(timetaken(started.at.overall)), "#####\n")
 	cat(tmp.messages)
 
 	sgp.config <- list(
@@ -845,15 +850,15 @@ SGPstateData[["DEMO"]][["Student_Report_Information"]] <-
 			sgp.content.areas=c('READING', 'GRADE_9_LIT', 'AMERICAN_LIT'),
 			sgp.panel.years=c('2012_2013', '2013_2014', '2014_2015'),
 			sgp.grade.sequences=list(c(8, 'EOCT', 'EOCT')),
-			sgp.calculate.simex=TRUE,
-			sgp.calculate.simex.baseline=calculate.simex.baseline),
+			sgp.calculate.simex=eval(parse(text=simex.parameters)),
+			sgp.calculate.simex.baseline=simex.parameters),
 	
 		 ALGEBRA_II.2014_2015 = list(
 			sgp.content.areas=c('MATHEMATICS', 'ALGEBRA_I', 'ALGEBRA_II'),
 			sgp.panel.years=c('2012_2013', '2013_2014', '2014_2015'),
 			sgp.grade.sequences=list(c(8, 'EOCT', 'EOCT')),
-			sgp.calculate.simex=TRUE,
-			sgp.calculate.simex.baseline=calculate.simex.baseline)
+			sgp.calculate.simex=eval(parse(text=simex.parameters)),
+			sgp.calculate.simex.baseline=simex.parameters)
 	)
 
 	expression.to.evaluate <- 
@@ -869,7 +874,8 @@ SGPstateData[["DEMO"]][["Student_Report_Information"]] <-
 	if (memory.profile) {
 		Rprof("testSGP(4.2)_Memory_Profile.out", memory.profiling=TRUE)
 	}
-	
+
+	started.at.intermediate <- proc.time()	
 	eval(parse(text=expression.to.evaluate))
 
 	### TEST of SGP_SIMEX and SGP_SIMEX_BASELINE variable
@@ -909,8 +915,8 @@ SGPstateData[["DEMO"]][["Student_Report_Information"]] <-
 			tmp.messages <- c(tmp.messages, "\t\tTest of @Data variable SGP_SIMEX_BASELINE: FAIL\n")
 		}
 	}
-	tmp.messages <- c(tmp.messages, "\t##### End testSGP test number 4, Part 2 #####\n")
-	tmp.messages <- c(tmp.messages, "\n##### End testSGP test number 4 #####\n")
+	tmp.messages <- c(tmp.messages, paste("\t##### End testSGP test number 4, Part 2: ", convertTime(timetaken(started.at.intermediate)), "#####\n"))
+	tmp.messages <- c(tmp.messages, paste("\n##### End testSGP test number 4: ", convertTime(timetaken(started.at.overall)), "#####\n"))
 	cat(tmp.messages)
 	} ### End TEST_NUMBER 4
 
