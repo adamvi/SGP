@@ -6,6 +6,7 @@ function(sgp_object,
 	years,
 	target.type,
 	target.level,
+	current.year.lagged.target=FALSE,
 	max.sgp.target.years.forward=3,
 	subset.ids=NULL,
 	return.lagged.status=TRUE,
@@ -13,14 +14,6 @@ function(sgp_object,
 	return.sgp.target.num.years=FALSE) {
 
 	VALID_CASE <- ID <- CONTENT_AREA <- YEAR <- GRADE <- FIRST_OBSERVATION <- LAST_OBSERVATION <- STATE <- SGP_PROJECTION_GROUP <- DUPS_FLAG <- SCALE_SCORE <- SCALE_SCORE_PRIOR <- V1 <- NULL
-
-    ### Check for `arrow` use
-    if (is(sgp_object@Data, "ArrowSGP")) {
-		# work with 'original', un-combined, `slot.data` as a data.table object
-        slot.data <- data.table::as.data.table(sgp_object@Data[["data"]])
-        arrow.grp.by <- getKey(slot.data)
-        arrow.tf <- TRUE
-    } else arrow.tf <- FALSE
 
 	### Utility functions
 
@@ -93,28 +86,26 @@ function(sgp_object,
 		## Find min/max of targets based upon CATCH_UP_KEEP_UP_STATUS_INITIAL status
 
 		if (nrow(tmp_object_1) > 0) {
+			if (target.type %in% c("sgp.projections.lagged", "sgp.projections.lagged.baseline")) {
+				max.sgp.target.years.forward <- max.sgp.target.years.forward + 1L
+				if (current.year.lagged.target) max.sgp.target.years.forward <- c(1, max.sgp.target.years.forward)
+				max.sgp.target.years.forward.label <- max.sgp.target.years.forward -1L 
+			} else {
+				max.sgp.target.years.forward.label <- max.sgp.target.years.forward
+			}
 			for (max.sgp.target.years.forward.iter in seq_along(max.sgp.target.years.forward)) {
 				num.years.available <- length(grep("LEVEL_[123456789]", names(tmp_object_1)))
 				if (projection_group.iter %in% names(SGP::SGPstateData[[state]][['SGP_Configuration']][['grade.projection.sequence']])) {
-#					if (length(max.sgp.target.years.forward)==1) {
-#						num.years.to.get <- min(SGP::SGPstateData[[state]][['SGP_Configuration']][['max.forward.projection.sequence']][[projection_group.iter]], num.years.available)
-#					} else {
-						num.years.to.get <- min(max.sgp.target.years.forward[max.sgp.target.years.forward.iter], SGP::SGPstateData[[state]][['SGP_Configuration']][['max.forward.projection.sequence']][[projection_group.iter]], num.years.available)
-#					}
+					num.years.to.get <- min(max.sgp.target.years.forward[max.sgp.target.years.forward.iter], SGP::SGPstateData[[state]][['SGP_Configuration']][['max.forward.projection.sequence']][[projection_group.iter]], num.years.available)
 					if (!is.null(SGP::SGPstateData[[state]][['SGP_Configuration']][['max.forward.projection.sequence']][[projection_group.iter]])) {
-#						if (length(max.sgp.target.years.forward)==1) {
-#							num.years.to.get.label <- SGP::SGPstateData[[state]][['SGP_Configuration']][['max.forward.projection.sequence']][[projection_group.iter]]
-#						} else {
-							num.years.to.get.label <- min(max.sgp.target.years.forward[max.sgp.target.years.forward.iter], SGP::SGPstateData[[state]][['SGP_Configuration']][['max.forward.projection.sequence']][[projection_group.iter]])
-#						}
+							num.years.to.get.label <- min(max.sgp.target.years.forward.label[max.sgp.target.years.forward.iter], SGP::SGPstateData[[state]][['SGP_Configuration']][['max.forward.projection.sequence']][[projection_group.iter]])
 					} else {
-						num.years.to.get.label <- max.sgp.target.years.forward[max.sgp.target.years.forward.iter]
+						num.years.to.get.label <- max.sgp.target.years.forward.label[max.sgp.target.years.forward.iter]
 					}
 				} else {
 					num.years.to.get <- min(max.sgp.target.years.forward[max.sgp.target.years.forward.iter], num.years.available)
-					num.years.to.get.label <- max.sgp.target.years.forward[max.sgp.target.years.forward.iter]
+					num.years.to.get.label <- max.sgp.target.years.forward.label[max.sgp.target.years.forward.iter]
 				}
-				if (target.type %in% c("sgp.projections.lagged", "sgp.projections.lagged.baseline")) num.years.to.get <- num.years.to.get+1
 
 				tmp.level.variables <-
 					paste(grep(paste0(sgp.projections.projection.unit.label, "_[", paste(seq(num.years.to.get), collapse=""), "]", tmp.suffix), names(tmp_object_1), value=TRUE), collapse=", ")
@@ -135,9 +126,9 @@ function(sgp_object,
 					}
 				} else {
 					if (return.sgp.target.num.years) {
-						tmp_object_2[,c('V1', 'V2'):=list(tmp_object_1[, eval(jExpression), keyby = jExp_Key][['V1']], tmp_object_1[, eval(jExpression_num_years), keyby = jExp_Key][['V1']])]
+						tmp_object_2[, c('V1', 'V2'):=list(tmp_object_1[, eval(jExpression), keyby = jExp_Key][['V1']], tmp_object_1[, eval(jExpression_num_years), keyby = jExp_Key][['V1']])]
 					} else {
-						tmp_object_2[,V1:=tmp_object_1[, eval(jExpression), keyby = jExp_Key][['V1']]]
+						tmp_object_2[, V1:=tmp_object_1[, eval(jExpression), keyby = jExp_Key][['V1']]]
 					}
 				}
 
@@ -192,47 +183,6 @@ function(sgp_object,
 		if (!is.null(level.to.get <- getTargetSGPLevel(state, state.iter, target.level))) {
 
 		### Calculate Targets
-            if (arrow.tf) {
-                ref.type <- ifelse(grepl("baseline", target.type), "BASELINE", "COHORT")
-                pjct.type <- ifelse(grepl("lagged", target.type), "LAGGED", "STRAIGHT")
-                pjct.path <- file.path("Data", "Arrow_SGP", "SGProjections", ref.type, "GROWTH", pjct.type)
-
-                cols.to.get.names <-
-                    lapply(tmp.names, \(f) names(sgp_object@SGP[["SGProjections"]][[f]])) |>
-                    unlist() |> unique()
-                cols.to.get.names <-
-                    cols.to.get.names[
-                        c(grep(paste0("LEVEL_", level.to.get), cols.to.get.names),
-                            grep("SGP_PROJECTION_GROUP", cols.to.get.names))
-                    ]
-                if (target.type %in% c("sgp.projections.lagged", "sgp.projections.lagged.baseline")) {
-                    cols.to.get.names <- c("ACHIEVEMENT_LEVEL_PRIOR", cols.to.get.names)
-                }
-                if ("STATE" %in% names(slot.data)) {
-                    cols.to.get.names <- c("STATE", cols.to.get.names)
-                }
-                cols.to.get <- unique(c(arrow.grp.by, cols.to.get.names))
-
-                tmp_object_1 <-
-                    ArrowSGP$new(
-                        source_path = pjct.path,
-                        years = years,
-                        content_areas = content_areas
-                    )[["data"]][cols.to.get]
-
-                if (!is.null(subset.ids)) {
-                    subset_ids <- arrow::arrow_table(ID = subset.ids)
-                    tmp_object_1 <- tmp_object_1 |>
-                        dplyr::semi_join(subset_ids) |>
-                        dplyr::compute()
-                }
-                if (!"SGP_PROJECTION_GROUP" %in% names(tmp_object_1)) {
-                    tmp_object_1 <- tmp_object_1 |>
-                       dplyr::mutate(SGP_PROJECTION_GROUP = CONTENT_AREA)
-                }
-                tmp_object_1 <- data.table::as.data.table(tmp_object_1) |>
-                    setkeyv(arrow.grp.by)
-            } else {
 			for (i in tmp.names) {
 				cols.to.get.names <- names(sgp_object@SGP[["SGProjections"]][[i]])[
 					c(grep(paste0("LEVEL_", level.to.get), names(sgp_object@SGP[["SGProjections"]][[i]])), grep("SGP_PROJECTION_GROUP", names(sgp_object@SGP[["SGProjections"]][[i]])))]
@@ -246,7 +196,6 @@ function(sgp_object,
 						YEAR=getTableNameYear(i),
 						sgp_object@SGP[["SGProjections"]][[i]][, cols.to.get, with=FALSE])[STATE==state.iter]
 				} else {
-					###  TOMORROW - arrow.tf option
 					tmp.list[[i]] <- data.table(
 						CONTENT_AREA=unlist(strsplit(i, "[.]"))[1],
 						YEAR=getTableNameYear(i),
@@ -261,20 +210,12 @@ function(sgp_object,
 			}
 
 			if (!"SGP_PROJECTION_GROUP" %in% names(tmp_object_1)) tmp_object_1[,SGP_PROJECTION_GROUP:=CONTENT_AREA]
-            }
 
-            for (projection_group.iter in unique(tmp_object_1[['SGP_PROJECTION_GROUP']])) {
-                tmp.sgpTarget.list[[paste(state.iter, projection_group.iter, sep = ".")]] <-
-                    getTargetSGP_INTERNAL(
-                        tmp_object_1[SGP_PROJECTION_GROUP == projection_group.iter],
-                        state, state.iter, projection_group.iter, target.type, target.level,
-                        year_within = "YEAR_WITHIN" %in% names(slot.data),
-                        fix.duplicates = fix.duplicates,
-                        max.sgp.target.years.forward = max.sgp.target.years.forward,
-                        return.sgp.target.num.years = return.sgp.target.num.years
-                    )
-            }
-
+			for (projection_group.iter in unique(tmp_object_1[['SGP_PROJECTION_GROUP']])) {
+				tmp.sgpTarget.list[[paste(state.iter, projection_group.iter, sep=".")]] <-
+				getTargetSGP_INTERNAL(tmp_object_1[SGP_PROJECTION_GROUP==projection_group.iter], state, state.iter, projection_group.iter, target.type, target.level,
+					year_within="YEAR_WITHIN" %in% names(slot.data), fix.duplicates=fix.duplicates, max.sgp.target.years.forward=max.sgp.target.years.forward, return.sgp.target.num.years=return.sgp.target.num.years)
+			}
 		} ### END !is.null(level.to.get)
 	} ### END for state.iter
 
