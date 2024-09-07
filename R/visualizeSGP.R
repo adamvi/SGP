@@ -171,24 +171,24 @@ function(sgp_object,
 
 
 		###  Check SGPstateData for changes and modify parallel processing for SNOW (Windows) if so:
-		if (!is.null(parallel.config)) {
-			# tmp.type <- names(parallel.config$WORKERS)[1]
-			# if (is.null(tmp.type)) tmp.type <- parallel.config$WORKERS
-			tmp.parallel.config <- parallel.config
-			tmp.parallel.config[["WORKERS"]][["GA_PLOTS"]] <- 2
-			par.start <- startParallel(tmp.parallel.config, "GA_PLOTS") # tmp.type) #  Just use 2 cores for this test - avoids issue when WORKERS[1] is 'TAUS'/missing qr.taus argument
+		# if (!is.null(parallel.config)) {
+		# 	# tmp.type <- names(parallel.config$WORKERS)[1]
+		# 	# if (is.null(tmp.type)) tmp.type <- parallel.config$WORKERS
+		# 	tmp.parallel.config <- parallel.config
+		# 	tmp.parallel.config[["WORKERS"]][["GA_PLOTS"]] <- 2
+		# 	par.start <- startParallel(tmp.parallel.config, "GA_PLOTS") # tmp.type) #  Just use 2 cores for this test - avoids issue when WORKERS[1] is 'TAUS'/missing qr.taus argument
 
-			tmp.digest <- SGP::SGPstateData[["digest"]]
-			tmp.SGPstateData <- SGP::SGPstateData
-			tmp.SGPstateData[["digest"]] <- NULL #  Can't assign `<- NULL` to SGP::SGPstateData (need tmp.SGPstateData)
-			if (!identical(tmp.digest, digest::digest(tmp.SGPstateData)) & par.start$par.type=="SNOW") {
-				messageSGP(
-					"\n\tManual changes to SGPstateData have been detected, which is not compatible with SNOW parallel processing.\n\tParallel processing will be disabled for all visualization production.\n")
-				stopParallel(parallel.config, par.start)
-				parallel.config <- NULL
-			} else 	stopParallel(parallel.config, par.start)
-			tmp.digest -> tmp.SGPstateData[["digest"]]
-		}
+		# 	tmp.digest <- SGP::SGPstateData[["digest"]]
+		# 	tmp.SGPstateData <- SGP::SGPstateData
+		# 	tmp.SGPstateData[["digest"]] <- NULL #  Can't assign `<- NULL` to SGP::SGPstateData (need tmp.SGPstateData)
+		# 	if (!identical(tmp.digest, digest::digest(tmp.SGPstateData)) & par.start$par.type=="SNOW") {
+		# 		messageSGP(
+		# 			"\n\tManual changes to SGPstateData have been detected, which is not compatible with SNOW parallel processing.\n\tParallel processing will be disabled for all visualization production.\n")
+		# 		stopParallel(parallel.config, par.start)
+		# 		parallel.config <- NULL
+		# 	} else 	stopParallel(parallel.config, par.start)
+		# 	tmp.digest -> tmp.SGPstateData[["digest"]]
+		# }
 
 ##############################################################################################################
 #### bubblePlot
@@ -792,7 +792,7 @@ if (sgPlot.wide.data) { ### When WIDE data is provided
 		setkeyv(slot.data, long.key)
 
 		if (is.null(sgPlot.students)) {
-			report.ids <- unique(slot.data[tmp.districts.and.schools][["ID"]])
+			report.ids <- unique(slot.data[tmp.districts.and.schools][["ID"]]) %w/o% NA
 			if (sgPlot.reports.by.instructor) report.ids <- intersect(student.teacher.lookup[['ID']], report.ids)
 			setkeyv(slot.data, c("CONTENT_AREA", "GRADE", "YEAR"))
 			tmp.table <- data.table(slot.data[getYearsContentAreasGrades(state, years=tmp.years.subset, content_areas_domains=tmp.content_areas_domains,
@@ -1068,7 +1068,9 @@ if (sgPlot.save.sgPlot.data) {
 	setkey(sgPlot.data, ID)
 	tmp.file.name <- paste(gsub(" ", "_", capwords(getStateAbbreviation(state, type="name"))), "studentGrowthPlot_Data", sep="_")
 	assign(tmp.file.name, sgPlot.data)
-	save(list=tmp.file.name, file=paste0(tmp.file.name, ".Rdata"))
+	save(list = tmp.file.name,
+         file = file.path(sgPlot.folder, paste0(tmp.file.name, ".Rdata"))
+	)
 }
 
 
